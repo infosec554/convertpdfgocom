@@ -66,3 +66,37 @@ This is the API documentation for **ConvertPDFGo**, a service designed for handl
 ```bash
 git clone https://github.com/your-repository-url.git
 cd your-project-directory
+
+Install Dependencies
+
+go mod tidy
+Running the Application Locally
+Set up your environment variables in the .env file.
+
+Run the application:
+
+
+go run main.go
+Docker Setup
+You can also use Docker for containerized deployment. Make sure Docker is installed and then run:
+
+
+docker-compose up --build
+This will bring up the necessary services like PostgreSQL, Redis, etc., in containers.
+
+API Usage
+Once the application is running, you can interact with the API through the provided endpoints. You may use tools like Postman or Swagger to test the endpoints.
+
+Swagger Documentation: http://localhost:8080/swagger
+
+Authentication: All endpoints starting with /me and /file require user authentication (JWT token).
+
+Contributing
+Feel free to fork the repository, create issues, and submit pull requests for new features or bug fixes.
+
+License
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+
+
+This `README.md` contains a clear overview of your project, the API endpoints available, how to set up and run the 

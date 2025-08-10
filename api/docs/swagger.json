@@ -1,0 +1,4546 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "Authentication and Authorization API",
+        "title": "Auth API",
+        "contact": {},
+        "version": "1.0"
+    },
+    "paths": {
+        "/admin/files": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Foydalanuvchi bo'yicha, qidiruv, sana va guest filterlari bilan fayllar ro'yxati",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin",
+                    "files"
+                ],
+                "summary": "Admin: list files",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filter by user_id",
+                        "name": "user_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Include files with NULL user_id",
+                        "name": "include_guests",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search in file_name (ILIKE)",
+                        "name": "q",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "From date (RFC3339)",
+                        "name": "from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "To date (RFC3339)",
+                        "name": "to",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 0,
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.FileRow"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/files/cleanup": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Admin-only endpoint to delete files older than N days",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin",
+                    "files"
+                ],
+                "summary": "Cleanup old files",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/files/pending-deletion": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "List files that are older than expirationMinutes minutes (pending deletion)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin",
+                    "files"
+                ],
+                "summary": "List files pending deletion",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 5,
+                        "description": "Expiration time in minutes",
+                        "name": "expirationMinutes",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.File"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/jobs": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Merge, split, compress va boshqa joblar holati (filter + paginatsiya)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin",
+                    "jobs"
+                ],
+                "summary": "List jobs (all types)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Job type (merge|split|compress)",
+                        "name": "type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Status (pending|processing|done|failed)",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "User ID",
+                        "name": "user_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "From (RFC3339, e.g. 2025-08-01T00:00:00Z)",
+                        "name": "from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "To (RFC3339)",
+                        "name": "to",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Job ID prefix",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 50,
+                        "description": "Limit (max 200)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 0,
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.JobSummary"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/logs/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get logs by job ID (admin)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin",
+                    "logs"
+                ],
+                "summary": "Get logs for a specific job",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Job ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.Log"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/users/{id}/demote": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "tags": [
+                    "admin",
+                    "users"
+                ],
+                "summary": "Demote admin to user",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "User ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/users/{id}/promote": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "tags": [
+                    "admin",
+                    "users"
+                ],
+                "summary": "Promote user to admin",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "User ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/users/{id}/role": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "tags": [
+                    "admin",
+                    "users"
+                ],
+                "summary": "Set user role",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "User ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "new role: admin|user",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.SetRoleRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/change-password": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Change password (user must send old and new password)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "user"
+                ],
+                "summary": "Change user password",
+                "parameters": [
+                    {
+                        "description": "Change password",
+                        "name": "change_password",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.ChangePasswordRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/facebook": {
+            "post": {
+                "description": "Facebook OAuth code orqali login yoki ro‘yxatdan o‘tish (JWT tokenlar qaytaradi)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Facebook orqali login yoki registratsiya",
+                "parameters": [
+                    {
+                        "description": "Facebook authorization code",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.FacebookAuthRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.LoginResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/github": {
+            "post": {
+                "description": "GitHub OAuth code orqali login yoki ro‘yxatdan o‘tish (JWT tokenlar qaytaradi)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "GitHub orqali login yoki registratsiya",
+                "parameters": [
+                    {
+                        "description": "GitHub authorization code",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.GithubAuthRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.LoginResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/google": {
+            "post": {
+                "description": "Google OAuth code orqali login yoki ro‘yxatdan o‘tish (JWT tokenlar qaytaradi)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Google orqali login yoki registratsiya",
+                "parameters": [
+                    {
+                        "description": "Google authorization code",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.GoogleAuthRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.LoginResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/login": {
+            "post": {
+                "description": "User login with email and password",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "User login",
+                "parameters": [
+                    {
+                        "description": "Login credentials",
+                        "name": "login",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.LoginRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.LoginResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/logout": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "JWT tokenlarni va sessionni bekor qiladi",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Logout (chiqish)",
+                "parameters": [
+                    {
+                        "description": "Logout request (refresh_token optional)",
+                        "name": "data",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/models.LogoutRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/refresh-token": {
+            "post": {
+                "description": "Return new access \u0026 refresh token using a valid refresh token",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Refresh access token",
+                "parameters": [
+                    {
+                        "description": "Refresh token",
+                        "name": "refresh",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.RefreshTokenRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.LoginResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/request-password-reset": {
+            "post": {
+                "description": "Send a password reset link to the user email",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Request password reset",
+                "parameters": [
+                    {
+                        "description": "User email",
+                        "name": "email",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.PasswordResetRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/reset-password": {
+            "post": {
+                "description": "Reset the user password using the reset token",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Reset user password",
+                "parameters": [
+                    {
+                        "description": "New password, repeat password, and token",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.ResetPasswordRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/signup": {
+            "post": {
+                "description": "Register a new user (name, email, password)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Register a new user",
+                "parameters": [
+                    {
+                        "description": "Signup data",
+                        "name": "user",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.SignupRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/models.SignupResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/file": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "file"
+                ],
+                "summary": "List all user's files",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Page",
+                        "name": "page",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.File"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Guest ham, ro‘yxatdan o‘tgan user ham yuklay oladi. (optional auth)",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "file"
+                ],
+                "summary": "Upload file",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "Upload file",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/file/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "file"
+                ],
+                "summary": "Get file by ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "File ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.File"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "file"
+                ],
+                "summary": "Delete file by ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "File ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/jobs/{type}/{id}/download": {
+            "get": {
+                "description": "Merge/Compress/Rotate/... kabi single-outputlarda to'g'ridan-to'g'ri faylni, pdf-to-jpg kabi ko'p outputlarda ZIP yoki birinchi chiqishni qaytaradi.",
+                "produces": [
+                    "application/octet-stream"
+                ],
+                "tags": [
+                    "jobs",
+                    "download"
+                ],
+                "summary": "Download job result (universal)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Job type (merge|split|compress|pdf-to-jpg|...)",
+                        "name": "type",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Job ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/me": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get user profile (JWT token required)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "user"
+                ],
+                "summary": "Get my profile",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.User"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/me/avatar": {
+            "patch": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Update user avatar (optional)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "user"
+                ],
+                "summary": "Update avatar",
+                "parameters": [
+                    {
+                        "description": "Avatar data",
+                        "name": "avatar",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.UpdateAvatarRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/me/preferences": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get user preferences (language, notifications)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "user"
+                ],
+                "summary": "Get user preferences",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.UserPreferences"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Update user preferences (language, notifications)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "user"
+                ],
+                "summary": "Update user preferences",
+                "parameters": [
+                    {
+                        "description": "User preferences data",
+                        "name": "preferences",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.UserPreferences"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/pdf/add-page-numbers": {
+            "post": {
+                "description": "Adds page numbers to selected pages with font/position settings (auth optional).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "pdf"
+                ],
+                "summary": "Add page numbers to a PDF",
+                "parameters": [
+                    {
+                        "description": "PDF ID and font settings",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.AddPageNumbersRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "job_id",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/pdf/add-page-numbers/{id}": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "pdf"
+                ],
+                "summary": "Get add-page-numbers job by ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Job ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.AddPageNumberJob"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/pdf/compress": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "pdf-compress"
+                ],
+                "summary": "Create compress job",
+                "parameters": [
+                    {
+                        "description": "compress job",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.CompressRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/pdf/compress/{id}": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "pdf-compress"
+                ],
+                "summary": "Get compress job by ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "compress job ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.CompressJob"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/pdf/crop": {
+            "post": {
+                "description": "PDF sahifalarini belgilangan tomonlardan qirqadi (top, bottom, left, right)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "PDF Edit"
+                ],
+                "summary": "Crop PDF pages",
+                "parameters": [
+                    {
+                        "description": "Crop request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.CropPDFRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/pdf/crop/{id}": {
+            "get": {
+                "description": "Crop PDF jarayonining natijasini olish",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "PDF Edit"
+                ],
+                "summary": "Get Crop Job info",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Job ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.CropPDFJob"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/pdf/excel-to-pdf": {
+            "post": {
+                "description": "Excel faylni PDF formatga o‘tkazish",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Excel to PDF"
+                ],
+                "summary": "Excel → PDF konvertatsiya qilish",
+                "parameters": [
+                    {
+                        "description": "Excel fayl IDsi",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.ExcelToPDFRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Yaratilgan job ID",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/models.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/pdf/excel-to-pdf/{id}": {
+            "get": {
+                "description": "Job statusini ko‘rish",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Excel to PDF"
+                ],
+                "summary": "Excel→PDF Job holatini olish",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Job ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.ExcelToPDFJob"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/pdf/extract": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "pdf-extract"
+                ],
+                "summary": "Create extract job",
+                "parameters": [
+                    {
+                        "description": "extract request body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.ExtractPagesRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/pdf/extract/{id}": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "pdf-extract"
+                ],
+                "summary": "Get extract job by ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "extract job ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.ExtractJob"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/pdf/jpg-to-pdf": {
+            "post": {
+                "description": "Convert a JPG to PDF",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "jpg-to-pdf"
+                ],
+                "summary": "Convert JPG to PDF",
+                "parameters": [
+                    {
+                        "description": "JPG to PDF request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.CreateJPGToPDFRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/pdf/jpg-to-pdf/{id}": {
+            "get": {
+                "description": "JPG to PDF konversiya ishining holatini olish",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "jpg-to-pdf"
+                ],
+                "summary": "Get JPG to PDF job",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Job ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.JPGToPDFJob"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/pdf/merge": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "pdf-merge"
+                ],
+                "summary": "Create merge job",
+                "parameters": [
+                    {
+                        "description": "merge job",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.CreateMergeJobRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/pdf/merge/{id}": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "pdf-merge"
+                ],
+                "summary": "Get merge job",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "merge job ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.MergeJob"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/pdf/merge/{id}/process": {
+            "post": {
+                "description": "Triggers processing for a merge job. Use POST (not GET).",
+                "tags": [
+                    "pdf-merge"
+                ],
+                "summary": "Process merge job (side-effect)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "merge job ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Processed synchronously",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Missing/invalid ID",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Job not found",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Job status not eligible for processing",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/pdf/pdf-to-jpg": {
+            "post": {
+                "description": "Convert a PDF file's pages into JPG format",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "pdf-to-jpg"
+                ],
+                "summary": "Convert PDF to JPG",
+                "parameters": [
+                    {
+                        "description": "PDF file ID",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.PDFToJPGRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/pdf/pdf-to-jpg/{id}": {
+            "get": {
+                "description": "Retrieve the status of the conversion job by Job ID",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "pdf-to-jpg"
+                ],
+                "summary": "Get PDF to JPG conversion job",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Job ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.PDFToJPGJob"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/pdf/pdf-to-word": {
+            "post": {
+                "description": "PDF faylni Word formatiga o‘tkazish",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "PDF to Word"
+                ],
+                "summary": "Convert PDF to Word",
+                "parameters": [
+                    {
+                        "description": "PDF to Word request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.PDFToWordRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/pdf/pdf-to-word/{id}": {
+            "get": {
+                "description": "PDF to Word ish holatini ko‘rish",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "PDF to Word"
+                ],
+                "summary": "Get PDF to Word Job",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Job ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.PDFToWordJob"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/pdf/ppt-to-pdf": {
+            "post": {
+                "description": "PowerPoint faylni PDF formatga o‘tkazish",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "PowerPoint to PDF"
+                ],
+                "summary": "Convert PowerPoint to PDF",
+                "parameters": [
+                    {
+                        "description": "PowerPoint to PDF request",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.PowerPointToPDFRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "job_id qaytadi",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/models.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/pdf/ppt-to-pdf/{id}": {
+            "get": {
+                "description": "Konvertatsiya holatini olish",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "PowerPoint to PDF"
+                ],
+                "summary": "Get PowerPoint→PDF Job Status",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Job ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.PowerPointToPDFJob"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/pdf/protect": {
+            "post": {
+                "description": "PDF fayliga parol qo‘shadi (foydalanuvchi tomonidan berilgan parol asosida)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "PDF Security"
+                ],
+                "summary": "Protect PDF with password",
+                "parameters": [
+                    {
+                        "description": "Protect request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.ProtectPDFRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/pdf/protect/{id}": {
+            "get": {
+                "description": "Parollangan PDF faylga oid ish holatini qaytaradi",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "PDF Security"
+                ],
+                "summary": "Get protected PDF job by ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Job ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.ProtectPDFJob"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/pdf/remove-pages": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "pdf-remove"
+                ],
+                "summary": "Create remove pages job",
+                "parameters": [
+                    {
+                        "description": "remove pages job",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.RemovePagesRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/pdf/remove-pages/{id}": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "pdf-remove"
+                ],
+                "summary": "Get remove pages job by ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "remove job ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.RemoveJob"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/pdf/rotate": {
+            "post": {
+                "description": "PDF fayl sahifalarini aylantiradi (90, 180 yoki 270 gradus)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "PDF Edit"
+                ],
+                "summary": "Rotate PDF pages",
+                "parameters": [
+                    {
+                        "description": "Rotate request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.RotatePDFRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/pdf/rotate/{id}": {
+            "get": {
+                "description": "Rotate PDF jarayonining natijasini olish",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "PDF Edit"
+                ],
+                "summary": "Get Rotate Job info",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Job ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.RotateJob"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/pdf/share": {
+            "post": {
+                "description": "PDF faylni boshqalar bilan ulashish uchun link yaratish",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "share"
+                ],
+                "summary": "Faylga ulashish havolasi yaratish",
+                "parameters": [
+                    {
+                        "description": "File ID and expiration date",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.CreateSharedLinkRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/pdf/share/{token}": {
+            "get": {
+                "description": "Token orqali faylga kirish",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "share"
+                ],
+                "summary": "Ulashilgan faylni olish",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Shared link token",
+                        "name": "token",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.SharedLink"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/pdf/split": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "pdf-split"
+                ],
+                "summary": "Create split job",
+                "parameters": [
+                    {
+                        "description": "split job",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.CreateSplitJobRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/pdf/split/{id}": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "pdf-split"
+                ],
+                "summary": "Get split job by ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "split job ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.SplitJob"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/pdf/unlock": {
+            "post": {
+                "description": "Qulflangan PDF faylni ochish (parolsiz qilish)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "PDF Unlock"
+                ],
+                "summary": "Unlock PDF file",
+                "parameters": [
+                    {
+                        "description": "Unlock PDF request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.UnlockPDFRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/pdf/unlock/{id}": {
+            "get": {
+                "description": "Unlock PDF ish holatini ko‘rish",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "PDF Unlock"
+                ],
+                "summary": "Get Unlock Job status",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Job ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.UnlockPDFJob"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/pdf/watermark": {
+            "post": {
+                "description": "Add a watermark text to specific pages of a PDF file",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "pdf-watermark"
+                ],
+                "summary": "Add text watermark to PDF",
+                "parameters": [
+                    {
+                        "description": "Watermark request body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.AddWatermarkRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/pdf/watermark/{id}": {
+            "get": {
+                "description": "Retrieve watermark job details and status",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "pdf-watermark"
+                ],
+                "summary": "Get watermark job by ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Watermark Job ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.AddWatermarkJob"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/pdf/word-to-pdf": {
+            "post": {
+                "description": "Word hujjatni PDF formatga o‘tkazish",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Word to PDF"
+                ],
+                "summary": "Convert Word to PDF",
+                "parameters": [
+                    {
+                        "description": "Word to PDF so‘rovi",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.WordToPDFRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/pdf/word-to-pdf/{id}": {
+            "get": {
+                "description": "Konvertatsiya holatini olish",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Word to PDF"
+                ],
+                "summary": "Get Word→PDF Job Status",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Job ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.WordToPDFJob"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/stats/user": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Foydalanuvchining PDF bo‘yicha statistikasi (birlashtirish, bo‘lish va h.k.)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "stats"
+                ],
+                "summary": "Foydalanuvchi statistikasi",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.UserStats"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/admin/files/deleted-logs": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "O‘chirilgan fayllar bo‘yicha audit loglar (admin-only, paginatsiya bilan)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin",
+                    "files"
+                ],
+                "summary": "List deleted files audit logs",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 50,
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 0,
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.FileDeletionLog"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "models.AddPageNumberJob": {
+            "type": "object",
+            "properties": {
+                "color": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "first_number": {
+                    "type": "integer"
+                },
+                "font_size": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "input_file_id": {
+                    "type": "string"
+                },
+                "output_file_id": {
+                    "type": "string"
+                },
+                "page_range": {
+                    "type": "string"
+                },
+                "position": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.AddPageNumbersRequest": {
+            "type": "object",
+            "required": [
+                "color",
+                "first_number",
+                "font_size",
+                "input_file_id",
+                "page_range",
+                "position"
+            ],
+            "properties": {
+                "color": {
+                    "type": "string"
+                },
+                "first_number": {
+                    "description": "\u003c-- bu yer o‘zgardi",
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "font_size": {
+                    "description": "\u003c-- bu yer o‘zgardi",
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "input_file_id": {
+                    "type": "string"
+                },
+                "page_range": {
+                    "type": "string"
+                },
+                "position": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.AddWatermarkJob": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "fill_color": {
+                    "type": "string"
+                },
+                "font_name": {
+                    "type": "string"
+                },
+                "font_size": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "input_file_id": {
+                    "type": "string"
+                },
+                "opacity": {
+                    "type": "number"
+                },
+                "output_file_id": {
+                    "type": "string"
+                },
+                "pages": {
+                    "type": "string"
+                },
+                "position": {
+                    "type": "string"
+                },
+                "rotation": {
+                    "type": "integer"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "text": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.AddWatermarkRequest": {
+            "type": "object",
+            "required": [
+                "fill_color",
+                "font_name",
+                "font_size",
+                "input_file_id",
+                "position",
+                "text"
+            ],
+            "properties": {
+                "fill_color": {
+                    "description": "e.g., \"#FF0000\"",
+                    "type": "string"
+                },
+                "font_name": {
+                    "description": "e.g., Helvetica",
+                    "type": "string"
+                },
+                "font_size": {
+                    "description": "e.g., 24",
+                    "type": "integer",
+                    "maximum": 72,
+                    "minimum": 8
+                },
+                "input_file_id": {
+                    "type": "string"
+                },
+                "opacity": {
+                    "description": "e.g., 0.6",
+                    "type": "number",
+                    "maximum": 1,
+                    "minimum": 0
+                },
+                "pages": {
+                    "description": "optional: \"1-3\"",
+                    "type": "string"
+                },
+                "position": {
+                    "description": "e.g., \"tl\"",
+                    "type": "string"
+                },
+                "rotation": {
+                    "description": "e.g., 0",
+                    "type": "integer",
+                    "maximum": 360,
+                    "minimum": 0
+                },
+                "text": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.ChangePasswordRequest": {
+            "type": "object",
+            "properties": {
+                "new_password": {
+                    "type": "string"
+                },
+                "old_password": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.CompressJob": {
+            "type": "object",
+            "properties": {
+                "compression": {
+                    "description": "\"low\", \"medium\", \"high\"",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.CompressionLevel"
+                        }
+                    ]
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "input_file_id": {
+                    "type": "string"
+                },
+                "output_file_id": {
+                    "description": "Output file, can be nil",
+                    "type": "string"
+                },
+                "status": {
+                    "description": "\"pending\", \"processing\", \"done\", \"failed\"",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.JobStatus"
+                        }
+                    ]
+                },
+                "user_id": {
+                    "description": "Can be nil for guest users",
+                    "type": "string"
+                }
+            }
+        },
+        "models.CompressRequest": {
+            "type": "object",
+            "required": [
+                "compression",
+                "input_file_id"
+            ],
+            "properties": {
+                "compression": {
+                    "description": "\"low\", \"medium\", \"high\"",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.CompressionLevel"
+                        }
+                    ]
+                },
+                "input_file_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.CompressionLevel": {
+            "type": "string",
+            "enum": [
+                "low",
+                "medium",
+                "high"
+            ],
+            "x-enum-varnames": [
+                "Low",
+                "Medium",
+                "High"
+            ]
+        },
+        "models.CreateJPGToPDFRequest": {
+            "type": "object",
+            "required": [
+                "input_file_ids"
+            ],
+            "properties": {
+                "input_file_ids": {
+                    "description": "JPG fayllar bir nechta bo‘ladi",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "models.CreateMergeJobRequest": {
+            "type": "object",
+            "properties": {
+                "input_file_ids": {
+                    "description": "birlashtirish uchun kerakli fayl IDlar",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "user_id": {
+                    "description": "optional (guest user uchun nil bo'lishi mumkin)",
+                    "type": "string"
+                }
+            }
+        },
+        "models.CreateSharedLinkRequest": {
+            "type": "object",
+            "required": [
+                "file_id"
+            ],
+            "properties": {
+                "expires_at": {
+                    "description": "*pointer bo‘lishi kerak!",
+                    "type": "string",
+                    "example": "2025-07-27T00:00:00Z"
+                },
+                "file_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.CreateSplitJobRequest": {
+            "type": "object",
+            "required": [
+                "input_file_id",
+                "split_ranges"
+            ],
+            "properties": {
+                "input_file_id": {
+                    "type": "string"
+                },
+                "split_ranges": {
+                    "description": "Masalan: \"1-3,4-5\"",
+                    "type": "string"
+                }
+            }
+        },
+        "models.CropPDFJob": {
+            "type": "object",
+            "properties": {
+                "bottom": {
+                    "description": "Pastki chegara",
+                    "type": "integer"
+                },
+                "box": {
+                    "description": "Box turi",
+                    "type": "string"
+                },
+                "created_at": {
+                    "description": "Yaratilgan vaqt",
+                    "type": "string"
+                },
+                "id": {
+                    "description": "Ish IDsi",
+                    "type": "string"
+                },
+                "input_file_id": {
+                    "description": "Kirish fayl IDsi",
+                    "type": "string"
+                },
+                "input_file_ids": {
+                    "description": "Fayl IDlari ro'yxati (bir nechta fayl uchun)",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "left": {
+                    "description": "Chap chegara",
+                    "type": "integer"
+                },
+                "output_file_id": {
+                    "description": "Chiqish fayli IDsi",
+                    "type": "string"
+                },
+                "pages": {
+                    "description": "Sahifalar",
+                    "type": "string"
+                },
+                "right": {
+                    "description": "O'ng chegara",
+                    "type": "integer"
+                },
+                "status": {
+                    "description": "Ish holati (masalan, \"pending\", \"done\")",
+                    "type": "string"
+                },
+                "top": {
+                    "description": "Yuqori chegara",
+                    "type": "integer"
+                },
+                "user_id": {
+                    "description": "Foydalanuvchi IDsi (guest uchun nil bo'lishi mumkin)",
+                    "type": "string"
+                }
+            }
+        },
+        "models.CropPDFRequest": {
+            "type": "object",
+            "required": [
+                "input_file_id"
+            ],
+            "properties": {
+                "bottom": {
+                    "type": "integer"
+                },
+                "box": {
+                    "description": "optional: mediabox, cropbox, etc",
+                    "type": "string"
+                },
+                "input_file_id": {
+                    "type": "string"
+                },
+                "left": {
+                    "type": "integer"
+                },
+                "pages": {
+                    "description": "optional: qaysi sahifalarni crop qilish",
+                    "type": "string"
+                },
+                "right": {
+                    "type": "integer"
+                },
+                "top": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.ExcelToPDFJob": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "input_file_id": {
+                    "type": "string"
+                },
+                "output_file_id": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.ExcelToPDFRequest": {
+            "type": "object",
+            "required": [
+                "input_file_id"
+            ],
+            "properties": {
+                "input_file_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.ExtractJob": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "input_file_id": {
+                    "type": "string"
+                },
+                "output_file_id": {
+                    "type": "string"
+                },
+                "pages_to_extract": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.ExtractPagesRequest": {
+            "type": "object",
+            "required": [
+                "input_file_id",
+                "page_ranges"
+            ],
+            "properties": {
+                "input_file_id": {
+                    "type": "string"
+                },
+                "page_ranges": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.FacebookAuthRequest": {
+            "type": "object",
+            "required": [
+                "code"
+            ],
+            "properties": {
+                "code": {
+                    "description": "Facebookdan kelgan code",
+                    "type": "string",
+                    "example": "AQDt1n..."
+                }
+            }
+        },
+        "models.File": {
+            "type": "object",
+            "properties": {
+                "fileName": {
+                    "type": "string"
+                },
+                "filePath": {
+                    "type": "string"
+                },
+                "fileSize": {
+                    "type": "integer"
+                },
+                "fileType": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "uploadedAt": {
+                    "type": "string"
+                },
+                "userID": {
+                    "description": "NULL bo‘lishi mumkin",
+                    "type": "string"
+                }
+            }
+        },
+        "models.FileDeletionLog": {
+            "type": "object",
+            "properties": {
+                "deleted_at": {
+                    "type": "string"
+                },
+                "deleted_by": {
+                    "type": "string"
+                },
+                "file_id": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.FileRow": {
+            "type": "object",
+            "properties": {
+                "file_name": {
+                    "type": "string"
+                },
+                "file_path": {
+                    "type": "string"
+                },
+                "file_size": {
+                    "type": "integer"
+                },
+                "file_type": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "uploaded_at": {
+                    "type": "string"
+                },
+                "user_email": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.GithubAuthRequest": {
+            "type": "object",
+            "required": [
+                "code"
+            ],
+            "properties": {
+                "code": {
+                    "type": "string",
+                    "example": "AQDt1n..."
+                }
+            }
+        },
+        "models.GoogleAuthRequest": {
+            "type": "object",
+            "required": [
+                "code"
+            ],
+            "properties": {
+                "code": {
+                    "description": "Google authorization code",
+                    "type": "string",
+                    "example": "4/0AX4XfW..."
+                }
+            }
+        },
+        "models.JPGToPDFJob": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "input_file_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "output_file_id": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.JobStatus": {
+            "type": "string",
+            "enum": [
+                "pending",
+                "processing",
+                "done",
+                "failed"
+            ],
+            "x-enum-varnames": [
+                "Pending",
+                "Processing",
+                "Done",
+                "Failed"
+            ]
+        },
+        "models.JobSummary": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "job_type": {
+                    "type": "string"
+                },
+                "output_file_id": {
+                    "description": "split uchun NULL bo'lishi mumkin",
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.Log": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "job_id": {
+                    "type": "string"
+                },
+                "job_type": {
+                    "type": "string"
+                },
+                "level": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.LoginRequest": {
+            "type": "object",
+            "required": [
+                "email",
+                "password"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.LoginResponse": {
+            "type": "object",
+            "properties": {
+                "access_token": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "refresh_token": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.LogoutRequest": {
+            "type": "object",
+            "properties": {
+                "refresh_token": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.MergeJob": {
+            "type": "object",
+            "properties": {
+                "createdAt": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "inputFileIDs": {
+                    "description": "input fayllar (JOIN orqali olinadi, db da yo‘q)",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "outputFileID": {
+                    "description": "NULL bo'lishi mumkin (hozircha natija yo'q)",
+                    "type": "string"
+                },
+                "status": {
+                    "description": "pending, done, failed",
+                    "type": "string"
+                },
+                "userID": {
+                    "description": "NULL bo'lishi mumkin (guest)",
+                    "type": "string"
+                }
+            }
+        },
+        "models.PDFToJPGJob": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "description": "Job creation timestamp",
+                    "type": "string"
+                },
+                "id": {
+                    "description": "Job ID",
+                    "type": "string"
+                },
+                "input_file_id": {
+                    "description": "Input file ID",
+                    "type": "string"
+                },
+                "output_file_ids": {
+                    "description": "List of generated JPG file IDs",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "status": {
+                    "description": "Status of the job (pending, processing, done, failed)",
+                    "type": "string"
+                },
+                "user_id": {
+                    "description": "User ID (nullable)",
+                    "type": "string"
+                },
+                "zip_file_id": {
+                    "description": "ZIP file ID (nullable, can be nil)",
+                    "type": "string"
+                }
+            }
+        },
+        "models.PDFToJPGRequest": {
+            "type": "object",
+            "required": [
+                "input_file_id"
+            ],
+            "properties": {
+                "input_file_id": {
+                    "description": "Required input file ID",
+                    "type": "string"
+                }
+            }
+        },
+        "models.PDFToWordJob": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "input_file_id": {
+                    "type": "string"
+                },
+                "output_file_id": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.PDFToWordRequest": {
+            "type": "object",
+            "required": [
+                "input_file_id"
+            ],
+            "properties": {
+                "input_file_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.PasswordResetRequest": {
+            "type": "object",
+            "required": [
+                "email"
+            ],
+            "properties": {
+                "email": {
+                    "description": "Foydalanuvchi emaili",
+                    "type": "string"
+                }
+            }
+        },
+        "models.PowerPointToPDFJob": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "input_file_id": {
+                    "type": "string"
+                },
+                "output_file_id": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.PowerPointToPDFRequest": {
+            "type": "object",
+            "required": [
+                "input_file_id"
+            ],
+            "properties": {
+                "input_file_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.ProtectPDFJob": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "input_file_id": {
+                    "type": "string"
+                },
+                "output_file_id": {
+                    "description": "← *pointer (✔ to‘g‘ri)",
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.ProtectPDFRequest": {
+            "type": "object",
+            "required": [
+                "input_file_id",
+                "password"
+            ],
+            "properties": {
+                "input_file_id": {
+                    "description": "PDF fayl ID",
+                    "type": "string"
+                },
+                "password": {
+                    "description": "Qo‘yiladigan parol",
+                    "type": "string"
+                }
+            }
+        },
+        "models.RefreshTokenRequest": {
+            "type": "object",
+            "required": [
+                "refresh_token"
+            ],
+            "properties": {
+                "refresh_token": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.RemoveJob": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "input_file_id": {
+                    "type": "string"
+                },
+                "output_file_id": {
+                    "description": "NULL bo‘lishi mumkin",
+                    "type": "string"
+                },
+                "pages_to_remove": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "description": "NULL bo‘lishi mumkin",
+                    "type": "string"
+                }
+            }
+        },
+        "models.RemovePagesRequest": {
+            "type": "object",
+            "properties": {
+                "input_file_id": {
+                    "type": "string"
+                },
+                "pages_to_remove": {
+                    "description": "e.g. \"1,4-6\"",
+                    "type": "string"
+                }
+            }
+        },
+        "models.ResetPasswordRequest": {
+            "type": "object",
+            "required": [
+                "new_password",
+                "repeat_password",
+                "token"
+            ],
+            "properties": {
+                "new_password": {
+                    "description": "Yangi parol",
+                    "type": "string"
+                },
+                "repeat_password": {
+                    "description": "Takrorlangan parol",
+                    "type": "string"
+                },
+                "token": {
+                    "description": "Token",
+                    "type": "string"
+                }
+            }
+        },
+        "models.Response": {
+            "type": "object",
+            "properties": {
+                "data": {},
+                "description": {
+                    "type": "string"
+                },
+                "statusCode": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.RotateJob": {
+            "type": "object",
+            "properties": {
+                "angle": {
+                    "description": "Burilish burchagi",
+                    "type": "integer"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "input_file_id": {
+                    "type": "string"
+                },
+                "output_file_id": {
+                    "type": "string"
+                },
+                "output_path": {
+                    "type": "string"
+                },
+                "pages": {
+                    "description": "Tanlangan sahifalar",
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.RotatePDFRequest": {
+            "type": "object",
+            "required": [
+                "angle",
+                "input_file_id",
+                "pages"
+            ],
+            "properties": {
+                "angle": {
+                    "description": "Burchak: 90, 180, 270",
+                    "type": "integer"
+                },
+                "input_file_id": {
+                    "type": "string"
+                },
+                "pages": {
+                    "description": "Sahifa raqamlari masalan: \"1-3\", \"2\", \"odd\"",
+                    "type": "string"
+                }
+            }
+        },
+        "models.SetRoleRequest": {
+            "type": "object",
+            "properties": {
+                "role": {
+                    "type": "string",
+                    "example": "admin"
+                }
+            }
+        },
+        "models.SharedLink": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "expires_at": {
+                    "type": "string"
+                },
+                "file_id": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "shared_token": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.SignupRequest": {
+            "type": "object",
+            "required": [
+                "email",
+                "name",
+                "password"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.SignupResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "description": "Foydalanuvchi ID si",
+                    "type": "string"
+                }
+            }
+        },
+        "models.SplitJob": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "input_file_id": {
+                    "type": "string"
+                },
+                "output_file_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "split_ranges": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "description": "❗️ string emas, *string bo‘lishi kerak",
+                    "type": "string"
+                }
+            }
+        },
+        "models.UnlockPDFJob": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "description": "Yaratilgan vaqti",
+                    "type": "string"
+                },
+                "id": {
+                    "description": "Job ID",
+                    "type": "string"
+                },
+                "input_file_id": {
+                    "description": "Kiruvchi fayl IDsi",
+                    "type": "string"
+                },
+                "output_file_id": {
+                    "description": "Natijaviy fayl IDsi",
+                    "type": "string"
+                },
+                "status": {
+                    "description": "pending, done, failed",
+                    "type": "string"
+                },
+                "user_id": {
+                    "description": "Foydalanuvchi IDsi",
+                    "type": "string"
+                }
+            }
+        },
+        "models.UnlockPDFRequest": {
+            "type": "object",
+            "required": [
+                "input_file_id",
+                "password"
+            ],
+            "properties": {
+                "input_file_id": {
+                    "description": "Kiruvchi PDF fayl IDsi",
+                    "type": "string"
+                },
+                "password": {
+                    "description": "PDF paroli",
+                    "type": "string"
+                }
+            }
+        },
+        "models.UpdateAvatarRequest": {
+            "type": "object",
+            "required": [
+                "avatar"
+            ],
+            "properties": {
+                "avatar": {
+                    "description": "Yangi avatar URL",
+                    "type": "string"
+                }
+            }
+        },
+        "models.User": {
+            "type": "object",
+            "properties": {
+                "avatar": {
+                    "description": "Foydalanuvchi profil rasmi URL (ixtiyoriy)",
+                    "type": "string"
+                },
+                "created_at": {
+                    "description": "Ro‘yxatdan o‘tgan vaqt",
+                    "type": "string"
+                },
+                "email": {
+                    "description": "Foydalanuvchi emaili",
+                    "type": "string"
+                },
+                "id": {
+                    "description": "Foydalanuvchi ID",
+                    "type": "string"
+                },
+                "language": {
+                    "description": "Foydalanuvchi tanlagan til (default: 'en')",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "Foydalanuvchi ismi",
+                    "type": "string"
+                },
+                "notifications": {
+                    "description": "Foydalanuvchi bildirishnomalarni olishni xohlayaptimi",
+                    "type": "boolean"
+                },
+                "role": {
+                    "description": "Foydalanuvchi roli (admin, user)",
+                    "type": "string"
+                },
+                "status": {
+                    "description": "Foydalanuvchi holati (active, blocked)",
+                    "type": "string"
+                },
+                "updated_at": {
+                    "description": "Profil yangilangan vaqti",
+                    "type": "string"
+                }
+            }
+        },
+        "models.UserPreferences": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "language": {
+                    "type": "string"
+                },
+                "notifications": {
+                    "type": "boolean"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.UserStats": {
+            "type": "object",
+            "properties": {
+                "added_page_numbers": {
+                    "description": "Sahifalarga raqam qo‘shish",
+                    "type": "integer"
+                },
+                "compressed": {
+                    "description": "Siqilgan fayllar soni",
+                    "type": "integer"
+                },
+                "cropped": {
+                    "description": "PDFni kesish ishlari",
+                    "type": "integer"
+                },
+                "extracted": {
+                    "description": "Sahifalar ajratilgan ishlar",
+                    "type": "integer"
+                },
+                "jpg_to_pdf": {
+                    "description": "JPG → PDF aylantirishlar",
+                    "type": "integer"
+                },
+                "merged": {
+                    "description": "Birlashtirish ishlar soni",
+                    "type": "integer"
+                },
+                "organized": {
+                    "description": "Sahifa tartibi o‘zgartirilgan",
+                    "type": "integer"
+                },
+                "pdf_to_jpg": {
+                    "description": "PDF → JPG aylantirishlar",
+                    "type": "integer"
+                },
+                "pdf_to_word": {
+                    "description": "PDF → Word aylantirishlar",
+                    "type": "integer"
+                },
+                "protected": {
+                    "description": "Parol bilan himoyalanganlar",
+                    "type": "integer"
+                },
+                "removed_pages": {
+                    "description": "Sahifa o‘chirish ishlar soni",
+                    "type": "integer"
+                },
+                "rotated": {
+                    "description": "Sahifa aylantirishlar",
+                    "type": "integer"
+                },
+                "splitted": {
+                    "description": "Bo‘lib olish ishlar soni",
+                    "type": "integer"
+                },
+                "total_files": {
+                    "description": "Umumiy yuklangan fayllar",
+                    "type": "integer"
+                },
+                "unlocked": {
+                    "description": "PDF qulflar yechilgan soni",
+                    "type": "integer"
+                },
+                "used_storage_mb": {
+                    "description": "MB’da ishlatilgan xotira (hisoblash kerak)",
+                    "type": "integer"
+                },
+                "watermarked": {
+                    "description": "Suv belgisi qo‘shilganlar",
+                    "type": "integer"
+                }
+            }
+        },
+        "models.WordToPDFJob": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "input_file_id": {
+                    "type": "string"
+                },
+                "output_file_id": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.WordToPDFRequest": {
+            "type": "object",
+            "required": [
+                "input_file_id"
+            ],
+            "properties": {
+                "input_file_id": {
+                    "type": "string"
+                }
+            }
+        }
+    },
+    "securityDefinitions": {
+        "ApiKeyAuth": {
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
+        }
+    }
+}

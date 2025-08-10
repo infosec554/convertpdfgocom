@@ -1,0 +1,32 @@
+-- TOZALASH (avval drop, so'ng create)
+DROP TABLE IF EXISTS password_reset_tokens
+DROP TABLE IF EXISTS contact_messages
+DROP TABLE IF EXISTS files_deletion_logs
+DROP TABLE IF EXISTS powerpoint_to_pdf_jobs;
+DROP TABLE IF EXISTS excel_to_pdf_jobs;
+DROP TABLE IF EXISTS word_to_pdf_jobs;
+DROP TABLE IF EXISTS pdf_to_word_jobs;
+DROP TABLE IF EXISTS shared_links;
+DROP TABLE IF EXISTS translate_jobs;
+DROP TABLE IF EXISTS pdf_inspect_jobs;
+DROP TABLE IF EXISTS logs;
+DROP TABLE IF EXISTS watermark_jobs;
+DROP TABLE IF EXISTS add_page_number_jobs;
+DROP TABLE IF EXISTS crop_pdf_jobs;
+DROP TABLE IF EXISTS unlock_jobs;
+DROP TABLE IF EXISTS protect_jobs;
+DROP TABLE IF EXISTS rotate_jobs;
+DROP TABLE IF EXISTS pdf_to_jpg_jobs;
+DROP TABLE IF EXISTS word_to_pdf_jobs;
+DROP TABLE IF EXISTS jpg_to_pdf_jobs;
+DROP TABLE IF EXISTS compress_jobs;
+DROP TABLE IF EXISTS extract_pages_jobs;
+DROP TABLE IF EXISTS remove_pages_jobs;
+DROP TABLE IF EXISTS split_jobs;
+DROP TABLE IF EXISTS merge_job_input_files;
+DROP TABLE IF EXISTS merge_jobs;
+DROP TABLE IF EXISTS organize_jobs;
+DROP TABLE IF EXISTS files;
+DROP TABLE IF EXISTS users;
+
+DROP TYPE IF EXISTS user_status_enum;

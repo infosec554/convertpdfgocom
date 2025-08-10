@@ -34,6 +34,14 @@ This is the API documentation for **ConvertPDFGo**, a service designed for handl
 - **Get Compress Job** (`GET /pdf/compress/:id`): Retrieve the status of a compress job.
 - **Convert PDFs to JPG** (`POST /pdf/pdf-to-jpg`): Create a new PDF to JPG conversion job.
 - **Get PDF to JPG Job** (`GET /pdf/pdf-to-jpg/:id`): Retrieve the status of a PDF to JPG conversion job.
+- **Convert PDFs to Word** (`POST /pdf/pdf-to-word`): Create a new PDF to Word conversion job.
+- **Get PDF to Word Job** (`GET /pdf/pdf-to-word/:id`): Retrieve the status of a PDF to Word conversion job.
+- **Convert Word to PDF** (`POST /pdf/word-to-pdf`): Create a new Word to PDF conversion job.
+- **Get Word to PDF Job** (`GET /pdf/word-to-pdf/:id`): Retrieve the status of a Word to PDF conversion job.
+- **Convert Excel to PDF** (`POST /pdf/excel-to-pdf`): Create a new Excel to PDF conversion job.
+- **Get Excel to PDF Job** (`GET /pdf/excel-to-pdf/:id`): Retrieve the status of an Excel to PDF conversion job.
+- **Convert PowerPoint to PDF** (`POST /pdf/ppt-to-pdf`): Create a new PowerPoint to PDF conversion job.
+- **Get PowerPoint to PDF Job** (`GET /pdf/ppt-to-pdf/:id`): Retrieve the status of a PowerPoint to PDF conversion job.
 
 ## Admin API
 - **Promote User to Admin** (`POST /admin/users/:id/promote`): Promote a user to admin role, requires authentication and admin role.
@@ -58,19 +66,3 @@ This is the API documentation for **ConvertPDFGo**, a service designed for handl
 ```bash
 git clone https://github.com/your-repository-url.git
 cd your-project-directory
-Install Dependencies
-
-go mod tidy
-Running the Application Locally
-Set up your environment variables in the .env file.
-
-Run the application:
-
-
-go run main.go
-Docker Setup
-You can also use Docker for containerized deployment. Make sure Docker is installed and then run:
-
-
-docker-compose up --build
-This will bring up the necessary services like PostgreSQL, Redis, etc., in containers.

@@ -38,6 +38,22 @@ services:
       - --chromium-auto-start
       - --libreoffice-auto-start
 
+  go_app:
+    build:
+      context: .
+      dockerfile: Dockerfile  # Bu yerda Dockerfile'ni yaratish kerak
+    container_name: go_app_container
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=1234
+      - POSTGRES_DB=authservice
+      - REDIS_PASSWORD=1234
+    depends_on:
+      - postgres
+      - redis
 
 volumes:
   postgres_data:

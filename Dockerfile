@@ -1,21 +1,31 @@
 # Golangning rasmidan foydalanish
-FROM golang:1.18
+FROM golang:1.18 AS builder
 
-# Ishchi katalogni o'rnatish
 WORKDIR /app
 
-# Go modlarni o'rnatish
+# Modul fayllarni yuklash
 COPY go.mod go.sum ./
-RUN go mod tidy
+RUN go mod download
 
-# Kodekni konteynerga nusxalash
+# Manba kodni nusxalash
 COPY . .
 
-# Kodekni kompilyatsiya qilish
+# Binary build qilish
 RUN go build -o main .
 
-# Portni eslatib o'tish
-EXPOSE 8080
+# --- Run stage ---
+FROM debian:bullseye
 
-# Ilovani ishga tushurish
+WORKDIR /app
+
+# Builderdan binary olish
+COPY --from=builder /app/main .
+
+# Railway uchun dynamic port
+ENV PORT=8080
+
+# Portni expose qilish
+EXPOSE ${PORT}
+
+# Appni ishga tushirish
 CMD ["./main"]

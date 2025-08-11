@@ -1,9 +1,9 @@
-# Golangning rasmidan foydalanish
-FROM golang:1.18 AS builder
+# --- Build stage ---
+FROM golang:1.20 AS builder
 
 WORKDIR /app
 
-# Modul fayllarni yuklash
+# Go mod fayllarni avval nusxalash (caching uchun)
 COPY go.mod go.sum ./
 RUN go mod download
 
@@ -11,12 +11,15 @@ RUN go mod download
 COPY . .
 
 # Binary build qilish
-RUN go build -o main .
+RUN CGO_ENABLED=0 GOOS=linux go build -o main .
 
 # --- Run stage ---
-FROM debian:bullseye
+FROM alpine:3.18
 
 WORKDIR /app
+
+# Timezone va SSL sertifikatlar uchun (Postgres/HTTPS ishlashi uchun)
+RUN apk --no-cache add ca-certificates tzdata
 
 # Builderdan binary olish
 COPY --from=builder /app/main .

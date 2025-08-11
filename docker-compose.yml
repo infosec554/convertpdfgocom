@@ -9,7 +9,7 @@ services:
       POSTGRES_PASSWORD: 1234
       POSTGRES_DB: authservice
     ports:
-      - "5433:5432" # local uchun
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
@@ -17,10 +17,8 @@ services:
     image: redis:7
     restart: always
     command: redis-server --requirepass 1234
-    environment:
-      REDIS_PASSWORD: 1234
     ports:
-      - "6380:6379" # local uchun
+      - "6380:6379"
     volumes:
       - redis_data:/data
 
@@ -28,27 +26,20 @@ services:
     image: gotenberg/gotenberg:7
     restart: always
     ports:
-      - "3000:3000" # local uchun
+      - "3000:3000"
     command:
       - gotenberg
       - --api-port=3000
       - --chromium-auto-start
       - --libreoffice-auto-start
 
-  go_app:
+  app:
     build:
       context: .
       dockerfile: Dockerfile
-    restart: always
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: 1234
-      POSTGRES_DB: authservice
-      REDIS_PASSWORD: 1234
-      GOTENBERG_URL: http://gotenberg:3000
-      PORT: 8080
     ports:
-      - "8080:8080" # faqat local uchun, Railway’da olib tashlanadi
+      - "8080:8080"
+    env_file: .env
     depends_on:
       - postgres
       - redis

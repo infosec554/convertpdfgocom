@@ -634,6 +634,15 @@ definitions:
     - input_file_id
     - password
     type: object
+  models.PublicStatsDisplay:
+    properties:
+      tools_count:
+        type: integer
+      total_usage:
+        type: string
+      total_users:
+        type: string
+    type: object
   models.RefreshTokenRequest:
     properties:
       refresh_token:
@@ -1035,6 +1044,44 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Cleanup old files
+      tags:
+      - admin
+      - files
+  /admin/files/deleted-logs:
+    get:
+      description: O‘chirilgan fayllar bo‘yicha audit loglar (admin-only, paginatsiya
+        bilan)
+      parameters:
+      - default: 50
+        description: Limit
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.FileDeletionLog'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.Response'
+      security:
+      - ApiKeyAuth: []
+      summary: List deleted files audit logs
       tags:
       - admin
       - files
@@ -2931,6 +2978,24 @@ paths:
       summary: Get Word→PDF Job Status
       tags:
       - Word to PDF
+  /public-stats:
+    get:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.PublicStatsDisplay'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.Response'
+      summary: Get public statistics
+      tags:
+      - public-stats
   /stats/user:
     get:
       consumes:
@@ -2957,44 +3022,6 @@ paths:
       summary: Foydalanuvchi statistikasi
       tags:
       - stats
-  /v1/admin/files/deleted-logs:
-    get:
-      description: O‘chirilgan fayllar bo‘yicha audit loglar (admin-only, paginatsiya
-        bilan)
-      parameters:
-      - default: 50
-        description: Limit
-        in: query
-        name: limit
-        type: integer
-      - default: 0
-        description: Offset
-        in: query
-        name: offset
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/models.FileDeletionLog'
-            type: array
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/models.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/models.Response'
-      security:
-      - ApiKeyAuth: []
-      summary: List deleted files audit logs
-      tags:
-      - admin
-      - files
 securityDefinitions:
   ApiKeyAuth:
     in: header

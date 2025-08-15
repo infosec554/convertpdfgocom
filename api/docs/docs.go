@@ -135,6 +135,63 @@ const docTemplate = `{
                 }
             }
         },
+        "/admin/files/deleted-logs": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "O‘chirilgan fayllar bo‘yicha audit loglar (admin-only, paginatsiya bilan)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin",
+                    "files"
+                ],
+                "summary": "List deleted files audit logs",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 50,
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 0,
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.FileDeletionLog"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/admin/files/pending-deletion": {
             "get": {
                 "security": [
@@ -3050,6 +3107,34 @@ const docTemplate = `{
                 }
             }
         },
+        "/public-stats": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "public-stats"
+                ],
+                "summary": "Get public statistics",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.PublicStatsDisplay"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/stats/user": {
             "get": {
                 "security": [
@@ -3077,63 +3162,6 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/models.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/models.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/v1/admin/files/deleted-logs": {
-            "get": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "O‘chirilgan fayllar bo‘yicha audit loglar (admin-only, paginatsiya bilan)",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "admin",
-                    "files"
-                ],
-                "summary": "List deleted files audit logs",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "default": 50,
-                        "description": "Limit",
-                        "name": "limit",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "default": 0,
-                        "description": "Offset",
-                        "name": "offset",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/models.FileDeletionLog"
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/models.Response"
                         }
@@ -4079,6 +4107,20 @@ const docTemplate = `{
                 },
                 "password": {
                     "description": "Qo‘yiladigan parol",
+                    "type": "string"
+                }
+            }
+        },
+        "models.PublicStatsDisplay": {
+            "type": "object",
+            "properties": {
+                "tools_count": {
+                    "type": "integer"
+                },
+                "total_usage": {
+                    "type": "string"
+                },
+                "total_users": {
                     "type": "string"
                 }
             }

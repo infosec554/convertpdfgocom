@@ -45,6 +45,7 @@ type IServiceManager interface {
 	AdminJob() AdminJobService
 	Download() DownloadService
 	Contact() ContactService
+	PublicStats() PublicStatsService
 }
 
 type service struct {
@@ -79,11 +80,12 @@ type service struct {
 	adminJobService      AdminJobService
 	downloadService      DownloadService
 	contact              ContactService
+	publicStatsService   PublicStatsService
 }
 
 func New(storage storage.IStorage, log logger.ILogger, mailerCore *mailer.Mailer, redis storage.IRedisStorage, gotClient gotenberg.Client, googleCfg config.OAuthProviderConfig) IServiceManager {
 	return &service{
-		userService:          NewUserService(storage, log,mailerCore),
+		userService:          NewUserService(storage, log, mailerCore),
 		mailer:               NewMailerService(mailerCore),
 		mergeService:         NewMergeService(storage, log),
 		fileService:          NewFileService(storage, log),
@@ -114,6 +116,7 @@ func New(storage storage.IStorage, log logger.ILogger, mailerCore *mailer.Mailer
 		adminJobService:      NewAdminJobService(storage, log),
 		downloadService:      NewDownloadService(storage, log),
 		contact:              NewContactService(storage, log),
+		publicStatsService:   *NewPublicStatsService(storage, log),
 	}
 }
 
@@ -236,4 +239,8 @@ func (s *service) Download() DownloadService {
 }
 func (s *service) Contact() ContactService {
 	return s.contact
+}
+
+func (s *service) PublicStats() PublicStatsService {
+	return s.publicStatsService
 }

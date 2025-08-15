@@ -22,7 +22,7 @@ import (
 // @Success      200 {array}  models.FileDeletionLog
 // @Failure      400 {object}  models.Response
 // @Failure      500 {object}  models.Response
-// @Router       /v1/admin/files/deleted-logs [get]
+// @Router       /admin/files/deleted-logs [get]
 func (h *Handler) AdminDeletedFilesLogs(c *gin.Context) {
 	// Parse pagination
 	limitStr := c.DefaultQuery("limit", "50")

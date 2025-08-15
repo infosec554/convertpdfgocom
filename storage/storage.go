@@ -43,11 +43,13 @@ type IStorage interface {
 
 	JobDownload() JobDownloadStorage
 	Contact() IContactStorage
+
+	PublicStats() IPublicStatsStorage
 }
 
 type IUserStorage interface {
 	Create(ctx context.Context, req models.SignupRequest) (string, error)
-	
+
 	GetForLoginByEmail(ctx context.Context, email string) (models.LoginUser, error)
 
 	GetByID(ctx context.Context, id string) (*models.User, error)
@@ -229,4 +231,8 @@ type IContactStorage interface {
 	List(ctx context.Context, onlyUnread bool, limit, offset int) ([]models.ContactMessage, error)
 	MarkRead(ctx context.Context, id string) error
 	Delete(ctx context.Context, id string) error
+}
+
+type IPublicStatsStorage interface {
+	GetPublicStats(ctx context.Context) (models.PublicStats, error)
 }

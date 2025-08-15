@@ -67,6 +67,13 @@ func New(services service.IServiceManager, log logger.ILogger) *gin.Engine {
 		stats.GET("/user", h.GetUserStats)
 	}
 
+	// ===================== PUBLIC STATS =====================
+	publicStats := r.Group("/public-stats")
+	publicStats.Use(h.AuthOptional)
+	{
+		publicStats.GET("", h.GetPublicStats)
+	}
+
 	// ===================== FILES =====================
 	// Public upload: token optional (guest allowed)
 	filesPub := r.Group("")

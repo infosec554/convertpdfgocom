@@ -1,7 +1,8 @@
 -- TOZALASH (avval drop, so'ng create)
-DROP TABLE IF EXISTS password_reset_tokens
-DROP TABLE IF EXISTS contact_messages
-DROP TABLE IF EXISTS files_deletion_logs
+
+DROP TABLE IF EXISTS password_reset_tokens;
+DROP TABLE IF EXISTS contact_messages;
+DROP TABLE IF EXISTS files_deletion_logs;
 DROP TABLE IF EXISTS powerpoint_to_pdf_jobs;
 DROP TABLE IF EXISTS excel_to_pdf_jobs;
 DROP TABLE IF EXISTS word_to_pdf_jobs;
@@ -17,7 +18,6 @@ DROP TABLE IF EXISTS unlock_jobs;
 DROP TABLE IF EXISTS protect_jobs;
 DROP TABLE IF EXISTS rotate_jobs;
 DROP TABLE IF EXISTS pdf_to_jpg_jobs;
-DROP TABLE IF EXISTS word_to_pdf_jobs;
 DROP TABLE IF EXISTS jpg_to_pdf_jobs;
 DROP TABLE IF EXISTS compress_jobs;
 DROP TABLE IF EXISTS extract_pages_jobs;

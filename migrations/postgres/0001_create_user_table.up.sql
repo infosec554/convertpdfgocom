@@ -17,9 +17,8 @@ CREATE TABLE users (
     name VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
     password VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP DEFAULT NOW()
-   updated_at TIMESTAMP DEFAULT NOW()
-
+    created_at TIMESTAMP DEFAULT NOW(),
+   updated_at TIMESTAMP DEFAULT NOW()  -- ❌ OXIRIDA vergul yo‘q edi
 );
 
 ALTER TABLE users 
@@ -29,8 +28,8 @@ ADD COLUMN notifications BOOLEAN DEFAULT TRUE;   -- Bildirishnomalarni olishni x
 CREATE TABLE user_preferences (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,  -- Foydalanuvchi ID
-    language VARCHAR(50) DEFAULT 'en',  -- Foydalanuvchi tilini saqlash (default: 'en')
-    notifications BOOLEAN DEFAULT TRUE,  -- Foydalanuvchi bildirishnomalarni olishni xohlayaptimi
+    language VARCHAR(50) DEFAULT 'en',
+    notifications BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT NOW(), 
     updated_at TIMESTAMP DEFAULT NOW()
 );
@@ -40,14 +39,14 @@ CREATE TABLE user_preferences (
 CREATE TABLE password_reset_tokens (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-    token VARCHAR(255) UNIQUE NOT NULL,  -- Parolni tiklash uchun token
+    token VARCHAR(255) UNIQUE NOT NULL,
     created_at TIMESTAMP DEFAULT NOW(), 
-    expires_at TIMESTAMP                -- Tokenning amal qilish muddati
+    expires_at TIMESTAMP
 );
 
 
 CREATE TABLE files (
-    id UUID PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(), -- ✅ gen_random_uuid() qo‘shgan ma’qul
     user_id UUID REFERENCES users(id) ON DELETE CASCADE, 
     file_name VARCHAR(255) NOT NULL,
     file_path TEXT NOT NULL,
@@ -58,10 +57,10 @@ CREATE TABLE files (
 
 -- ORGANIZE PDF
 CREATE TABLE organize_jobs (
-    id UUID PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES users(id),
     input_file_id UUID NOT NULL REFERENCES files(id),
-    new_order INTEGER[] NOT NULL, -- Sahifalar yangi tartibi
+    new_order INTEGER[] NOT NULL,
     output_file_id UUID REFERENCES files(id),
     status VARCHAR(20) NOT NULL DEFAULT 'pending',
     created_at TIMESTAMP DEFAULT NOW()
@@ -69,7 +68,7 @@ CREATE TABLE organize_jobs (
 
 -- MERGE PDF
 CREATE TABLE merge_jobs (
-    id UUID PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES users(id),
     output_file_id UUID REFERENCES files(id),
     status VARCHAR(20) NOT NULL,
@@ -77,13 +76,13 @@ CREATE TABLE merge_jobs (
 );
 
 CREATE TABLE merge_job_input_files (
-    id UUID PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     job_id UUID NOT NULL REFERENCES merge_jobs(id) ON DELETE CASCADE,
     file_id UUID NOT NULL REFERENCES files(id)
 );
 
 CREATE TABLE split_jobs (
-    id UUID PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES users(id),
     input_file_id UUID NOT NULL REFERENCES files(id),
     split_ranges TEXT NOT NULL,
@@ -93,7 +92,7 @@ CREATE TABLE split_jobs (
 );
 
 CREATE TABLE remove_pages_jobs (
-    id UUID PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES users(id),
     input_file_id UUID NOT NULL REFERENCES files(id),
     pages_to_remove TEXT NOT NULL,
@@ -103,7 +102,7 @@ CREATE TABLE remove_pages_jobs (
 );
 
 CREATE TABLE extract_pages_jobs (
-    id UUID PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES users(id),
     input_file_id UUID NOT NULL REFERENCES files(id),
     pages_to_extract TEXT NOT NULL,
@@ -114,7 +113,7 @@ CREATE TABLE extract_pages_jobs (
 
 -- OPTIMIZE PDF
 CREATE TABLE compress_jobs (
-    id UUID PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES users(id),
     input_file_id UUID NOT NULL REFERENCES files(id),
     compression VARCHAR(10),
@@ -125,9 +124,9 @@ CREATE TABLE compress_jobs (
 
 -- CONVERT TO PDF
 CREATE TABLE jpg_to_pdf_jobs (
-    id UUID PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES users(id),
-    input_file_ids UUID[] NOT NULL, -- Bir nechta rasm fayllari
+    input_file_ids UUID[] NOT NULL,
     output_file_id UUID REFERENCES files(id),
     status VARCHAR(20) NOT NULL CHECK (status IN ('pending', 'processing', 'done', 'failed')),
     created_at TIMESTAMP DEFAULT NOW()
@@ -136,7 +135,7 @@ CREATE TABLE jpg_to_pdf_jobs (
 
 
 CREATE TABLE pdf_to_jpg_jobs (
-    id UUID PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES users(id),
     input_file_id UUID NOT NULL REFERENCES files(id),
     output_file_ids UUID[] DEFAULT ARRAY[]::UUID[],
@@ -147,20 +146,20 @@ CREATE TABLE pdf_to_jpg_jobs (
 
 
 CREATE TABLE rotate_jobs (
-    id UUID PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES users(id),
     input_file_id UUID NOT NULL REFERENCES files(id),
-    rotation_angle INTEGER NOT NULL,   -- Burilish burchagi
-    pages VARCHAR NOT NULL DEFAULT 'all', -- Sahifa diapazoni
-    output_file_id UUID REFERENCES files(id),  -- Chiqish fayli
-    output_path VARCHAR,  -- Faylni saqlash joyi
-    status VARCHAR(20) NOT NULL,  -- Holat: 'pending', 'done'
-    created_at TIMESTAMP DEFAULT now() -- Yaratilgan vaqti
+    rotation_angle INTEGER NOT NULL,
+    pages VARCHAR NOT NULL DEFAULT 'all',
+    output_file_id UUID REFERENCES files(id),
+    output_path VARCHAR,
+    status VARCHAR(20) NOT NULL,
+    created_at TIMESTAMP DEFAULT now()
 );
 
 
 CREATE TABLE add_page_number_jobs (
-  id UUID PRIMARY KEY,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES users(id),
   input_file_id UUID NOT NULL REFERENCES files(id),
   output_file_id UUID REFERENCES files(id),
@@ -175,8 +174,8 @@ CREATE TABLE add_page_number_jobs (
 
 
 CREATE TABLE add_watermark_jobs (
-    id UUID PRIMARY KEY,
-     user_id UUID REFERENCES users(id),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id),
     input_file_id UUID NOT NULL,
     output_file_id UUID,
     text TEXT NOT NULL,
@@ -188,14 +187,14 @@ CREATE TABLE add_watermark_jobs (
     fill_color TEXT NOT NULL,
     pages TEXT DEFAULT 'all',
     status VARCHAR(20) NOT NULL,
-    created_at TIMESTAMP NOT NULL
+    created_at TIMESTAMP NOT NULL DEFAULT now() -- ❌ avval `NOT NULL` edi, lekin DEFAULT bo‘lsa shart emas
 );
 
 
 
 
 CREATE TABLE crop_pdf_jobs (
-    id UUID PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES users(id),
     input_file_id UUID NOT NULL REFERENCES files(id),
     top INTEGER NOT NULL,
@@ -209,7 +208,7 @@ CREATE TABLE crop_pdf_jobs (
 
 -- PDF SECURITY
 CREATE TABLE unlock_jobs (
-    id UUID PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES users(id),
     input_file_id UUID NOT NULL REFERENCES files(id),
     output_file_id UUID REFERENCES files(id),
@@ -219,7 +218,7 @@ CREATE TABLE unlock_jobs (
 
 -- Logs Table
 CREATE TABLE logs (
-    id UUID PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     job_id UUID,
     job_type VARCHAR(30),
     message TEXT,
@@ -231,14 +230,15 @@ CREATE TABLE logs (
 
 -- Shared Links
 CREATE TABLE shared_links (
-    id UUID PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     file_id UUID REFERENCES files(id) ON DELETE CASCADE,
     shared_token VARCHAR(255) UNIQUE NOT NULL,
     expires_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT NOW()
 );
+
 CREATE TABLE protect_jobs (
-    id UUID PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES users(id),
     input_file_id UUID NOT NULL REFERENCES files(id),
     output_file_id UUID REFERENCES files(id),
@@ -246,8 +246,9 @@ CREATE TABLE protect_jobs (
     status VARCHAR(20) NOT NULL,
     created_at TIMESTAMP DEFAULT NOW()
 );
+
 CREATE TABLE pdf_to_word_jobs (
-    id UUID PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES users(id),
     input_file_id UUID NOT NULL REFERENCES files(id),
     output_file_id UUID REFERENCES files(id),
@@ -256,16 +257,18 @@ CREATE TABLE pdf_to_word_jobs (
     ),
     created_at TIMESTAMP DEFAULT NOW()
 );
+
 CREATE TABLE word_to_pdf_jobs (
-    id UUID PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES users(id),
     input_file_id UUID NOT NULL REFERENCES files(id),
     output_file_id UUID REFERENCES files(id),
     status VARCHAR(50) NOT NULL CHECK (status IN ('pending', 'processing', 'done', 'failed')),
     created_at TIMESTAMP DEFAULT NOW()
 );
+
 CREATE TABLE excel_to_pdf_jobs (
-    id UUID PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES users(id),
     input_file_id UUID NOT NULL REFERENCES files(id),
     output_file_id UUID REFERENCES files(id),
@@ -274,7 +277,7 @@ CREATE TABLE excel_to_pdf_jobs (
 );
 
 CREATE TABLE powerpoint_to_pdf_jobs (
-    id UUID PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES users(id),
     input_file_id UUID NOT NULL REFERENCES files(id),
     output_file_id UUID REFERENCES files(id),
@@ -285,19 +288,13 @@ CREATE TABLE powerpoint_to_pdf_jobs (
 CREATE TABLE files_deletion_logs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     file_id UUID NOT NULL,
-    user_id UUID NULL,           -- fayl egasi, agar ma’lum bo‘lsa
-    deleted_by UUID NOT NULL,    -- o‘chirgan foydalanuvchi yoki sistema
+    user_id UUID NULL,
+    deleted_by UUID NOT NULL,
     deleted_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    reason TEXT NULL             -- o‘chirish sababi (ixtiyoriy)
+    reason TEXT NULL
 );
+
 CREATE TABLE contact_messages (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(255) NOT NULL,
-    email VARCHAR(255) NOT NULL,
-    message TEXT NOT NULL,
-    created_at TIMESTAMP DEFAULT NOW()
-);
-CREATE TABLE  contact_messages (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name        VARCHAR(255) NOT NULL,
     email       VARCHAR(255) NOT NULL,

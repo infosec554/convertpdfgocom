@@ -172,3 +172,7 @@ func (s *Store) JobDownload() storage.JobDownloadStorage {
 func (s *Store) Contact() storage.IContactStorage {
 	return NewContactRepo(s.pool, s.log)
 }
+
+func (s *Store) PublicStats() storage.IPublicStatsStorage {
+	return NewPublicStatsRepo(s.pool, s.log)
+}

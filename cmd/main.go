@@ -31,8 +31,8 @@ func main() {
 	services := service.New(pgStore, log, mailService, redisStore, gotClient, cfg.Google)
 
 	server := api.New(services, log)
-	log.Info("Service is running on", logger.Int("port", 8080))
-	if err = server.Run("localhost:8080"); err != nil {
+	log.Info("Service is running on", logger.Int("port", 8081))
+	if err = server.Run("localhost:8011"); err != nil {
 		panic(err)
 	}
 }

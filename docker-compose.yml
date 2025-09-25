@@ -1,84 +1,81 @@
-version: "3.8"
-
 services:
-  # -------- Gotenberg (PDF Converter) --------
+  postgres:
+    image: postgres:15
+    env_file: .env
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - ./data/pg:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:${HOST_POSTGRES_PORT:-5433}:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB} -h 127.0.0.1 -p 5432 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server","--requirepass","${REDIS_PASSWORD}","--maxmemory","256mb","--maxmemory-policy","allkeys-lru"]
+    env_file: .env
+    volumes:
+      - ./data/redis:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "PING"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
   gotenberg:
     image: gotenberg/gotenberg:8
-    restart: always
-    expose:                # faqat ichki tarmoq uchun, tashqariga publish qilinmaydi
-      - "3000"
-    command: ["gotenberg", "--chromium-disable-javascript=true"]
+    env_file: .env
+    environment:
+      - LOG_LEVEL=info
+      - CHROMIUM_MAX_CONCURRENT_ROUTES=1
+      - LIBREOFFICE_MAX_CONCURRENT_CONVERSIONS=1
+    ports:
+      - "127.0.0.1:${GOTENBERG_HOST_PORT:-3008}:3000"
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
       interval: 10s
-      timeout: 3s
-      retries: 20
+      timeout: 5s
+      retries: 10
 
-  # -------- Main App --------
   app:
-    # image: ghcr.io/yourorg/convertpdfgo:latest   # prod uchun registrydan olish yaxshi
     build:
       context: .
-      dockerfile: Dockerfile
-    restart: always
-    env_file:
-      - ./.env     # ⚠️ PROD’da bu faylni ishlatish o‘rniga SSM/SecretsManager’dan inject qil
+      dockerfile: ./Dockerfile
+      args:
+        - VERSION=${SERVICE_NAME:-convertpdfgo}
+        - COMMIT=local
+        - MAIN_PKG=./cmd/app/main.go   # <--- sendagi HAQIQIY yo'lga almashtir!
+    env_file: .env
     environment:
-      GOTENBERG_URL: http://gotenberg:3000
-      MIGRATIONS_DIR: /app/migrations/postgres
-    volumes:
-      - ./migrations:/app/migrations:ro
-    ports:
-      - "8080:8080"     # ALB shu portga yo‘naltiradi
+      - APP_PORT=${APP_PORT}
+      - APP_ENV=${APP_ENV}
+      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
+      - REDIS_ADDR=${REDIS_HOST}:${REDIS_PORT}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - GOTENBERG_URL=${GOTENBERG_URL}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - LOGGER_LEVEL=${LOGGER_LEVEL}
     depends_on:
-      gotenberg:
-        condition: service_healthy
-      # Local profil ishlaganda postgres/redis ham ishlatiladi
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+      gotenberg:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${APP_PORT}:${APP_PORT}"
+    restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:${APP_PORT}/healthz || exit 1"]
       interval: 10s
-      timeout: 3s
-      retries: 20
-
-  # -------- Local Development: Postgres --------
-  postgres:
-    image: postgres:15
-    restart: always
-    profiles: ["local"]   # faqat local uchun ishlaydi
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: 1234
-      POSTGRES_DB: convertpdfgo
-    ports:
-      - "5433:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d convertpdfgo -h 127.0.0.1 -p 5432"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
-
-  # -------- Local Development: Redis --------
-  redis:
-    image: redis:7
-    restart: always
-    profiles: ["local"]
-    command: ["redis-server", "--appendonly", "yes", "--requirepass", "1234"]
-    ports:
-      - "6380:6379"
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "-a", "1234", "PING"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
-
-volumes:
-  postgres_data:
-  redis_data:
+      timeout: 5s
+      retries: 10

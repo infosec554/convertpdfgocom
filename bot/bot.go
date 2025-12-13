@@ -227,16 +227,11 @@ func (b *Bot) handleUpdate(ctx context.Context, update tgbotapi.Update) {
 	// Text message handling (Menu clicks)
 	if update.Message.Text != "" {
 		lang := b.getUserLang(ctx, update.Message.From.ID)
-		// 1. Check Admin States
-		if state, ok := b.userStates.Load(update.Message.From.ID); ok && state != StateNone {
-			b.handleAdminStates(ctx, &update, state.(string))
-			return
-		}
-
-		// 2. Check Admin Commands
+		// 1. Check Admin Commands (Prioritize over states)
 		if update.Message.From.ID == b.adminUserID {
 			switch update.Message.Text {
 			case "👨‍⚖️ Admin Panel":
+				b.userStates.Delete(update.Message.From.ID) // Clear state
 				b.sendAdminPanel(update.Message.Chat.ID)
 				return
 			case "📊 Global Stats":
@@ -259,6 +254,19 @@ func (b *Bot) handleUpdate(ctx context.Context, update tgbotapi.Update) {
 				b.splitContext.Delete(update.Message.From.ID)
 				lang := b.getUserLang(ctx, update.Message.From.ID)
 				b.sendUserMenu(update.Message.Chat.ID, lang)
+				return
+			case "🏠 Asosiy menu", "🏠 Menu", "🏠 Main menu", "🏠 Главное меню":
+				b.userStates.Delete(update.Message.From.ID)
+				b.sendAdminPanel(update.Message.Chat.ID)
+				return
+			}
+		}
+
+		// 2. Check Admin States
+		if state, ok := b.userStates.Load(update.Message.From.ID); ok && state != StateNone {
+			// Double check if user is admin (security)
+			if update.Message.From.ID == b.adminUserID {
+				b.handleAdminStates(ctx, &update, state.(string))
 				return
 			}
 		}
@@ -357,6 +365,8 @@ func (b *Bot) handleUpdate(ctx context.Context, update tgbotapi.Update) {
 				b.sendMessage(update.Message.Chat.ID, T(lang, "about_msg"))
 			case "partnership":
 				b.sendPartnershipInfo(update.Message.Chat.ID, lang)
+			case "back_to_menu":
+				b.sendMainMenu(update.Message.Chat.ID, lang)
 			}
 			return
 		}
@@ -892,7 +902,7 @@ func (b *Bot) handleDocument(ctx context.Context, message *tgbotapi.Message) {
 		switch ext {
 		case ".pdf":
 			action = "compress"
-		case ".doc", ".docx":
+		case ".doc", ".docx", ".odt", ".rtf":
 			action = "word"
 		case ".xls", ".xlsx":
 			action = "excel"

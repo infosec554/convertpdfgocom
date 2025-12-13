@@ -79,19 +79,41 @@ func (s *splitService) Create(ctx context.Context, req models.CreateSplitJobRequ
 
 	for i, r := range ranges {
 		r = strings.TrimSpace(r)
-		outputPath := filepath.Join(outputDir, fmt.Sprintf("part_%d.pdf", i+1))
+		// Har bir qism uchun alohida papka ochamiz (file nomini aniq bilish uchun)
+		partDir := filepath.Join(outputDir, fmt.Sprintf("temp_%d", i))
+		if err := os.MkdirAll(partDir, os.ModePerm); err != nil {
+			s.log.Error("Failed to create part dir", logger.Error(err))
+			continue
+		}
 
 		// pdfcpu ExtractPages - string formatda sahifalar kerak: "1-3" yoki "5"
-		if err := api.ExtractPagesFile(file.FilePath, outputDir, []string{r}, nil); err != nil {
+		// Natija partDir ichiga tushadi
+		if err := api.ExtractPagesFile(file.FilePath, partDir, []string{r}, nil); err != nil {
 			s.log.Error("pdfcpu extract failed", logger.String("range", r), logger.Error(err))
 			continue
 		}
 
-		// pdfcpu output faylni qidirish va nomini o'zgartirish
-		extractedFile := filepath.Join(outputDir, filepath.Base(file.FilePath))
-		if _, err := os.Stat(extractedFile); err == nil {
-			os.Rename(extractedFile, outputPath)
+		// partDir ichidagi faylni topamiz
+		files, err := os.ReadDir(partDir)
+		if err != nil || len(files) == 0 {
+			s.log.Error("No file generated in part dir", logger.String("range", r))
+			continue
 		}
+		
+		// Birinchi faylni olamiz (odatda bitta bo'ladi)
+		generatedName := files[0].Name()
+		generatedPath := filepath.Join(partDir, generatedName)
+		
+		outputPath := filepath.Join(outputDir, fmt.Sprintf("part_%d_%s", i+1, generatedName))
+
+		// Faylni asosiy output papkaga ko'chirib, nomini chiroyli qilamiz
+		if err := os.Rename(generatedPath, outputPath); err != nil {
+			s.log.Error("Failed to rename/move output file", logger.Error(err))
+			continue
+		}
+		
+		// Temp papkani o'chiramiz
+		os.RemoveAll(partDir)
 
 		// 5. Output faylni saqlash
 		fi, err := os.Stat(outputPath)
@@ -104,7 +126,7 @@ func (s *splitService) Create(ctx context.Context, req models.CreateSplitJobRequ
 		newFile := models.File{
 			ID:         outputID,
 			UserID:     userID,
-			FileName:   fmt.Sprintf("split_part_%d.pdf", i+1),
+			FileName:   fmt.Sprintf("split_%s", generatedName), // Original nomga yaqin saqlaymiz
 			FilePath:   outputPath,
 			FileType:   "application/pdf",
 			FileSize:   fi.Size(),

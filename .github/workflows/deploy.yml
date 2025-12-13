@@ -47,31 +47,44 @@ jobs:
           push: true
           tags: infosec554/convertpdfgo:latest
 
-      - name: Setup SSH Key
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: "100.48.211.97"
           username: ubuntu
-          key_path: ~/.ssh/deploy_key
+          key: |
+            -----BEGIN RSA PRIVATE KEY-----
+            MIIEowIBAAKCAQEAs3ifMbGdR3Exw5RfwslGsuNMaZ1/vXoKSx/K1LFZmrTsKhip
+            /0Slikp78VniHgEsnDKDy+pTLIm3vj6r431HgKuo/OFUWcmfpfs/LgydOgiUCpeo
+            g6u6oRsuAfj2+TLlNrBITSEnt1VGSX1K6ACQ6Y9mGKBt4JvVwuRykNS1TZJr2XBW
+            o4eKYXZtfLWaMn5h7GnmZbkvmNF1F54nQbVq7dNQWH57Rpgh1v96L39K6dFwSKUs
+            SajXHPuUG1vIDjiAdCv+yc/P9HNtr0Chpyuv1VDerCtrh96LxWUpRfzwygSmZ+Oz
+            5JzWjgjCjHg0HVNvQILZ5kWo3dr5qmNsd6higwIDAQABAoIBADSWPHcwJvifB0ja
+            efC2T1vtVB+CQcLANrHqf+EwkiPNrYFsNquQbr0FtCl0/9dw2qRt/MZMQ9DCDa/V
+            50HCHKhsJBjs4W1psbjN1KZmlc9CYjZ0V7E1KXs5XpK/Y4aDTjxnDNhkxaFngC/a
+            YY93Uv7MwMqof2mX39u6WoNrgDBZIFMTx4YgRz69FPUm9WDI9e168WwD/lMlPTD7
+            Rb7KwrMqdth9LwU71zJORXuf2M3Ln++RdlY+gZzdXR8AW5fYwvKHUektRjpNLBvd
+            v12j/LEPN9rEC/xpdLA8iCfRUiLSI8LzghYpk4kSImWYlAn/Ln7cUXhi0mJS8Zaf
+            dyVD2CkCgYEA2sP6eYGvNS4OYGVz8C+pEGvvyR1OXvz8dOiJCevyNCUHRzWPi3KS
+            iz0Q7rdSztenXc05K0u0yomGdP8m3W+ozPWiX9DwMLftIM1fx8oFDZe0rtViOkEv
+            XXNf6HihW2ksb2Z8sC8xIgg6f64ojTITTAm1pc56doerQ7J6DOU8RFUCgYEA0gSD
+            1xuU/eGCGr0qP1MRzltCBI3Qbzjact6mG+GMHAC7lbOoMcW4IMOxQCLLyZH98wf3
+            y/ACy58Hgx3JZ8U7BhdBvxEzWacn7EUvSfzjTndqZVL+lmM1ELqnkbfchiOHzmus
+            77dYTIRX+ujvvRFclHL7N/MaLIyIk/4pywMZI3cCgYBoztejevQcAFK28CQZgFv5
+            GB0rNzUi4QV6ZSWycS36uXrBLPH2lw+KUdlY5M9xdXQJjxnyLN5wIJNccGlneYO54
+            M351dT59uMCMpJgsuaauGm5gDK8gxbYRiYL7dz+m8b5uKKW4KwPZECQmo6Od8c24
+            8jXql/+n5duxdUJwBytWeQKBgETtUGvX1JViXrXx4Zy44b4tO0SNWpw2N5O9uRyr
+            cLV8FBS0yv3S23R9ZX4cLW/xZzxNICmhkvlLL0b8Dq7tD0sXdO+FcKn672Je7n9E
+            7UFCdfvdOksXMkJUUEzF4C1yGc9IjZB7RxKN2OYzbwNJYG4kMokRU0TNtsGDiCnl
+            0WlPAoGBAIJ/iz3/3h4sFvJrqZ46C4tXh17Hb3CPtbu3ZY+dlBJPNL6sxr3sJP1l
+            0LVF/ILX4soHsilDTfZiLMn6nq9MYHgu1vSFkgkFhLP1XwqHbwFTE5HwuwobWsxL
+            NtqIkvWF7c6nKafI+/8B4NzzBr4o+xwEK1rJyZSSbxShSRSYce1N
+            -----END RSA PRIVATE KEY-----
           script: |
-            # Login to Docker Hub on server (optional if public repo, but good practice)
             echo "dckr_pat_UUKDAiNMHloJh-EhqaZ2ELo1sp4" | docker login -u "infosec554" --password-stdin
-            
-            # Stop existing container if running
             docker stop app || true
             docker rm app || true
-            
-            # Pull new image
             docker pull infosec554/convertpdfgo:latest
-            
-            # Run new container
-            # Adjust environment variables and ports as needed
             docker run -d \
               --name app \
               --restart unless-stopped \
@@ -79,4 +92,4 @@ jobs:
               -e BOT_TOKEN="${{ secrets.BOT_TOKEN }}" \
               -e ADMIN_ID="${{ secrets.ADMIN_ID }}" \
               -e POSTGRES_CONN="${{ secrets.POSTGRES_CONN }}" \
-               infosec554/convertpdfgo:latest
+              infosec554/convertpdfgo:latest

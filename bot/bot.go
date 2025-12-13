@@ -895,6 +895,10 @@ func (b *Bot) processFile(ctx context.Context, message *tgbotapi.Message, action
 	}
 
 	b.log.Info("File saved", logger.String("fileID", fileID), logger.String("action", action))
+	
+	// Show "uploading file..." status
+	b.api.Send(tgbotapi.NewChatAction(message.Chat.ID, tgbotapi.ChatUploadDocument))
+
 
 	var outputFileID *string
 

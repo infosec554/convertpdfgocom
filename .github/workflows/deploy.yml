@@ -37,15 +37,15 @@ jobs:
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          username: infosec554
+          password: dckr_pat_PcpE8ggLzF4dFfXunRGh14LctZE
 
       - name: Build and Push Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
-          tags: ${{ secrets.DOCKER_USERNAME }}/convertpdfgo:latest
+          tags: infosec554/convertpdfgo:latest
 
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v1.0.3
@@ -55,14 +55,14 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           script: |
             # Login to Docker Hub on server (optional if public repo, but good practice)
-            echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+            echo "dckr_pat_PcpE8ggLzF4dFfXunRGh14LctZE" | docker login -u "infosec554" --password-stdin
             
             # Stop existing container if running
             docker stop app || true
             docker rm app || true
             
             # Pull new image
-            docker pull ${{ secrets.DOCKER_USERNAME }}/convertpdfgo:latest
+            docker pull infosec554/convertpdfgo:latest
             
             # Run new container
             # Adjust environment variables and ports as needed
@@ -73,4 +73,4 @@ jobs:
               -e BOT_TOKEN="${{ secrets.BOT_TOKEN }}" \
               -e ADMIN_ID="${{ secrets.ADMIN_ID }}" \
               -e POSTGRES_CONN="${{ secrets.POSTGRES_CONN }}" \
-               ${{ secrets.DOCKER_USERNAME }}/convertpdfgo:latest
+               infosec554/convertpdfgo:latest

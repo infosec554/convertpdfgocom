@@ -261,7 +261,7 @@ func (b *Bot) handleUpdate(ctx context.Context, update tgbotapi.Update) {
 		}
 
 		// 4. Merge Handling (Text click)
-		if update.Message.Text == "🖇 Merge PDF" {
+		if key := GetKey(lang, update.Message.Text); key == "merge_pdf" {
 			b.startMergeFlow(ctx, update.Message.Chat.ID, update.Message.From.ID)
 			return
 		}
@@ -273,25 +273,25 @@ func (b *Bot) handleUpdate(ctx context.Context, update tgbotapi.Update) {
 		}
 
 		// 4.2 Rotate PDF Handling
-		if update.Message.Text == "🔄 Rotate PDF" {
+		if key := GetKey(lang, update.Message.Text); key == "rotate_pdf" {
 			b.startRotateFlow(ctx, update.Message.Chat.ID, update.Message.From.ID)
 			return
 		}
 
 		// 4.3 Watermark Handling
-		if update.Message.Text == "💧 Watermark" {
+		if key := GetKey(lang, update.Message.Text); key == "watermark" {
 			b.startWatermarkFlow(ctx, update.Message.Chat.ID, update.Message.From.ID)
 			return
 		}
 
 		// 4.4 Unlock PDF Handling
-		if update.Message.Text == "🔓 Unlock PDF" {
+		if key := GetKey(lang, update.Message.Text); key == "unlock_pdf" {
 			b.startUnlockFlow(ctx, update.Message.Chat.ID, update.Message.From.ID)
 			return
 		}
 
 		// 4.5 PDF to JPG Handling
-		if update.Message.Text == "📷 PDF to JPG" {
+		if key := GetKey(lang, update.Message.Text); key == "pdf_to_jpg" {
 			b.startPDFToJPGFlow(ctx, update.Message.Chat.ID, update.Message.From.ID)
 			return
 		}
@@ -542,15 +542,15 @@ func (b *Bot) sendUserMenu(chatID int64, lang string) {
 			tgbotapi.NewKeyboardButton(T(lang, "split_pdf")),
 		),
 		tgbotapi.NewKeyboardButtonRow(
-			tgbotapi.NewKeyboardButton("🖇 Merge PDF"),
-			tgbotapi.NewKeyboardButton("🔄 Rotate PDF"),
+			tgbotapi.NewKeyboardButton(T(lang, "merge_pdf")),
+			tgbotapi.NewKeyboardButton(T(lang, "rotate_pdf")),
 		),
 		tgbotapi.NewKeyboardButtonRow(
-			tgbotapi.NewKeyboardButton("💧 Watermark"),
-			tgbotapi.NewKeyboardButton("🔓 Unlock PDF"),
+			tgbotapi.NewKeyboardButton(T(lang, "watermark")),
+			tgbotapi.NewKeyboardButton(T(lang, "unlock_pdf")),
 		),
 		tgbotapi.NewKeyboardButtonRow(
-			tgbotapi.NewKeyboardButton("📷 PDF to JPG"),
+			tgbotapi.NewKeyboardButton(T(lang, "pdf_to_jpg")),
 		),
 		tgbotapi.NewKeyboardButtonRow(
 			tgbotapi.NewKeyboardButton(T(lang, "my_coins")),

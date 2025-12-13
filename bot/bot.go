@@ -2024,8 +2024,6 @@ func (b *Bot) sendSubscriptionRequest(chatID int64, lang string) {
 }
 
 func (b *Bot) sendUserList(ctx context.Context, chatID int64) {
-	b.sendMessage(chatID, "⏳ Foydalanuvchilar ro'yxati tayyorlanmoqda...")
-
 	// Barcha foydalanuvchilarni olish
 	users, err := b.services.BotUser().GetAllUsers(ctx)
 	if err != nil {
@@ -2038,56 +2036,45 @@ func (b *Bot) sendUserList(ctx context.Context, chatID int64) {
 		return
 	}
 
-	// Excel (CSV) fayl yaratish
-	fileName := fmt.Sprintf("users_list_%s.csv", time.Now().Format("2006-01-02_15-04-05"))
-	csvPath := filepath.Join("/tmp", fileName)
-	
-	file, err := os.Create(csvPath)
-	if err != nil {
-		b.sendMessage(chatID, "❌ Fayl yaratishda xatolik: "+err.Error())
-		return
+	// Oxirgi 30 ta user (yoki kamroq)
+	count := len(users)
+	limit := 30
+	start := 0
+	if count > limit {
+		start = count - limit
 	}
-	defer file.Close()
 	
-	// UTF-8 BOM for Excel compatibility
-	file.WriteString("\xEF\xBB\xBF")
-	
-	// Header
-	file.WriteString("Telegram ID,Username,Ism,Familiya,Til,Coinlar,Ro'yxatdan o'tgan\n")
-	
-	// Users data
-	for _, u := range users {
-		// Familiya va ism ajratish (agar FirstName da bo'sh joy bo'lsa)
-		firstName := u.FirstName
-		lastName := ""
-		if parts := strings.SplitN(u.FirstName, " ", 2); len(parts) > 1 {
-			firstName = parts[0]
-			lastName = parts[1]
+	// Create text report
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("👥 *Foydalanuvchilar ro'yxati* (Jami: %d)\n\n", count))
+	sb.WriteString("_Oxirgi qo'shilganlar:_\n\n")
+
+	// Reverse iterate for newest first
+	for i := count - 1; i >= start; i-- {
+		u := users[i]
+		username := ""
+		if u.Username != "" {
+			username = "@" + u.Username
+		} else {
+			username = u.FirstName
 		}
 		
-		line := fmt.Sprintf("%d,%q,%q,%q,%s,%d,%s\n",
-			u.TelegramID,
-			u.Username,
-			firstName,
-			lastName,
-			u.Language,
+		line := fmt.Sprintf("%d. *%s* | 🆔 `%d` | 💰 %d\n", 
+			count-i, 
+			username, 
+			u.TelegramID, 
 			u.Coins,
-			u.CreatedAt.Format("2006-01-02 15:04:05"),
 		)
-		file.WriteString(line)
+		sb.WriteString(line)
 	}
 
-	// Yuborish
-	doc := tgbotapi.NewDocument(chatID, tgbotapi.FilePath(csvPath))
-	doc.Caption = fmt.Sprintf("👥 <b>Foydalanuvchilar ro'yxati</b>\n📊 Jami: %d ta\n📅 Sana: %s", len(users), time.Now().Format("2006-01-02 15:04"))
-	doc.ParseMode = "HTML"
-	
-	if _, err := b.api.Send(doc); err != nil {
-		b.sendMessage(chatID, "❌ Yuborishda xatolik: "+err.Error())
+	if count > limit {
+		sb.WriteString(fmt.Sprintf("\n... va yana %d ta eskiroq (to'liq ro'yxat uchun *Backup* ni bosing)", start))
 	}
-	
-	// Temp faylni o'chirish
-	os.Remove(csvPath)
+
+	msg := tgbotapi.NewMessage(chatID, sb.String())
+	msg.ParseMode = "Markdown"
+	b.api.Send(msg)
 }
 
 func (b *Bot) sendBackupExcel(ctx context.Context, chatID int64) {
@@ -2119,8 +2106,11 @@ func (b *Bot) sendBackupExcel(ctx context.Context, chatID int64) {
 		os.Remove(csvPath)
 	}()
 
+	// UTF-8 BOM for Excel compatibility
+	file.WriteString("\xEF\xBB\xBF")
+
 	// CSV Header
-	file.WriteString("TelegramID,Username,FirstName,Coins,TotalUsed,Language,ReferredBy,CreatedAt\n")
+	file.WriteString("Telegram ID,Username,Ism,Familiya,Til,Coinlar,Ishlatilgan,Referal,Ro'yxatdan o'tgan\n")
 
 	// Data writing
 	for _, u := range users {
@@ -2129,14 +2119,22 @@ func (b *Bot) sendBackupExcel(ctx context.Context, chatID int64) {
 			refBy = fmt.Sprintf("%d", *u.ReferredBy)
 		}
 
-		// %q puts quotes around strings, which is good for CSV (handles commas inside names)
-		line := fmt.Sprintf("%d,%q,%q,%d,%d,%s,%s,%s\n",
+		// Familiya va ism ajratish
+		firstName := u.FirstName
+		lastName := ""
+		if parts := strings.SplitN(u.FirstName, " ", 2); len(parts) > 1 {
+			firstName = parts[0]
+			lastName = parts[1]
+		}
+
+		line := fmt.Sprintf("%d,%q,%q,%q,%s,%d,%d,%s,%s\n",
 			u.TelegramID,
 			u.Username,
-			u.FirstName,
+			firstName,
+			lastName,
+			u.Language,
 			u.Coins,
 			u.TotalUsed,
-			u.Language,
 			refBy,
 			u.CreatedAt.Format("2006-01-02 15:04:05"),
 		)
@@ -2145,7 +2143,7 @@ func (b *Bot) sendBackupExcel(ctx context.Context, chatID int64) {
 
 	// Yuborish
 	doc := tgbotapi.NewDocument(chatID, tgbotapi.FilePath(csvPath))
-	doc.Caption = fmt.Sprintf("🗄 <b>Full Backup (CSV)</b>\n👥 Users: %d\n📅 Date: %s", len(users), time.Now().Format("2006-01-02 15:04"))
+	doc.Caption = fmt.Sprintf("🗄 <b>Full Backup (Excel/CSV)</b>\n👥 Foydalanuvchilar: %d ta\n📅 Sana: %s", len(users), time.Now().Format("2006-01-02 15:04"))
 	doc.ParseMode = "HTML"
 	
 	if _, err := b.api.Send(doc); err != nil {

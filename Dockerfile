@@ -19,6 +19,7 @@ WORKDIR /app
 
 # Migrations papkasini ko'chirish
 COPY --from=build /src/migrations /app/migrations
+COPY --from=build /src/templates /app/templates
 COPY --from=build /out/app /app/app
 
 # Storage papkasi uchun

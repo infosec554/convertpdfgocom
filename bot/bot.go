@@ -310,6 +310,17 @@ func (b *Bot) handleUpdate(ctx context.Context, update tgbotapi.Update) {
 			return
 		}
 
+		// 5.2 Cancel button for regular users
+		if key := GetKey(lang, update.Message.Text); key == "cancel" {
+			// Clear all states
+			b.userStates.Delete(update.Message.From.ID)
+			b.mergeContext.Delete(update.Message.From.ID)
+			b.splitContext.Delete(update.Message.From.ID)
+			b.sendMessage(update.Message.Chat.ID, "✅ Bekor qilindi")
+			b.sendMainMenu(update.Message.Chat.ID, lang)
+			return
+		}
+
 		// 5.1 Split pages state - sahifalar kiritilganda
 		if state, ok := b.userStates.Load(update.Message.From.ID); ok && state == StateSplitPages {
 			b.finishSplitFlow(ctx, update.Message.Chat.ID, update.Message.From.ID, update.Message.Text)
@@ -1419,16 +1430,24 @@ func (b *Bot) startMergeFlow(ctx context.Context, chatID, userID int64) {
 	b.userStates.Store(userID, StateMergeUpload)
 	b.mergeContext.Delete(userID) // Clear previous files
 
+	lang := b.getUserLang(ctx, userID)
+	
+	// Admin uchun "User Mode", oddiy user uchun "Bekor qilish"
+	cancelBtnText := "❌ Bekor qilish"
+	if userID == b.adminUserID {
+		cancelBtnText = "↩️ User Mode"
+	}
+
 	keyboard := tgbotapi.NewReplyKeyboard(
 		tgbotapi.NewKeyboardButtonRow(
 			tgbotapi.NewKeyboardButton("Done"),
 		),
 		tgbotapi.NewKeyboardButtonRow(
-			tgbotapi.NewKeyboardButton("↩️ User Mode"),
+			tgbotapi.NewKeyboardButton(cancelBtnText),
 		),
 	)
 
-	msg := tgbotapi.NewMessage(chatID, "Birlashtirish uchun PDF fayllarni birin-ketin yuboring.\nBarchasini yuborib bo'lgach *Done* tugmasini bosing.")
+	msg := tgbotapi.NewMessage(chatID, T(lang, "merge_upload_prompt"))
 	msg.ReplyMarkup = keyboard
 	msg.ParseMode = "Markdown"
 	b.api.Send(msg)

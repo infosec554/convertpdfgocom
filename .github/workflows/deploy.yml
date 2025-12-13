@@ -79,6 +79,7 @@ jobs:
           NtqIkvWF7c6nKafI+/8B4NzzBr4o+xwEK1rJyZSSbxShSRSYce1N
           -----END RSA PRIVATE KEY-----
           EOF
+          sed -i 's/^[[:space:]]*//' ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H 100.48.211.97 >> ~/.ssh/known_hosts
           ssh -i ~/.ssh/deploy_key ubuntu@100.48.211.97 << 'REMOTE'

@@ -50,7 +50,7 @@ jobs:
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.HOST }}
+          host: "100.48.211.97"
           username: ubuntu
           key: ${{ secrets.SSH_KEY }}
           script: |

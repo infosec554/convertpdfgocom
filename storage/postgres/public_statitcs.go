@@ -26,24 +26,9 @@ func (r *publicStatsRepo) GetPublicStats(ctx context.Context) (models.PublicStat
 
 	query := `
 SELECT
-    (SELECT COUNT(*) FROM users) AS total_users,
-    (SELECT COUNT(DISTINCT tool_name) FROM tools) AS tools_count,
-    (
-        (SELECT COUNT(*) FROM merge_jobs) +
-        (SELECT COUNT(*) FROM split_jobs) +
-        (SELECT COUNT(*) FROM remove_pages_jobs) +
-        (SELECT COUNT(*) FROM compress_jobs) +
-        (SELECT COUNT(*) FROM extract_pages_jobs) +
-        (SELECT COUNT(*) FROM jpg_to_pdf_jobs) +
-        (SELECT COUNT(*) FROM pdf_to_jpg_jobs) +
-        (SELECT COUNT(*) FROM pdf_to_word_jobs) +
-        (SELECT COUNT(*) FROM rotate_jobs) +
-        (SELECT COUNT(*) FROM add_page_number_jobs) +
-        (SELECT COUNT(*) FROM crop_pdf_jobs) +
-        (SELECT COUNT(*) FROM protect_jobs) +
-        (SELECT COUNT(*) FROM unlock_jobs)
-    ) AS total_usage
-
+    (SELECT COUNT(*) FROM bot_users) AS total_users,
+    10 AS tools_count,
+    (SELECT COALESCE(SUM(total_used), 0) FROM bot_users) AS total_usage
 `
 
 	err := r.db.QueryRow(ctx, query).Scan(

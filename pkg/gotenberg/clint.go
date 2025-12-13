@@ -46,7 +46,7 @@ func (g *gotenbergClient) PDFToWord(ctx context.Context, pdfPath string) ([]byte
 		return nil, fmt.Errorf("cannot copy file: %w", err)
 	}
 
-	_ = writer.WriteField("output", "docx") // optional
+	_ = writer.WriteField("output", "docx")
 	writer.Close()
 
 	req, err := http.NewRequestWithContext(ctx, "POST", g.baseURL+"/forms/libreoffice/convert", &requestBody)
@@ -172,7 +172,7 @@ func (g *gotenbergClient) PowerPointToPDF(ctx context.Context, pptPath string) (
 		return nil, fmt.Errorf("cannot copy file: %w", err)
 	}
 
-	_ = writer.WriteField("waitTimeout", "30s") // optional
+	_ = writer.WriteField("waitTimeout", "30s")
 	writer.Close()
 
 	req, err := http.NewRequestWithContext(ctx, "POST", g.baseURL+"/forms/libreoffice/convert", &requestBody)
@@ -205,7 +205,6 @@ func (g *gotenbergClient) HTMLToPDF(ctx context.Context, htmlPath string) ([]byt
 	var requestBody bytes.Buffer
 	writer := multipart.NewWriter(&requestBody)
 
-	// Fayl nomi **faqat** "index.html" bo‘lishi kerak
 	part, err := writer.CreateFormFile("files", "index.html")
 	if err != nil {
 		return nil, fmt.Errorf("cannot create form file: %w", err)
@@ -216,7 +215,6 @@ func (g *gotenbergClient) HTMLToPDF(ctx context.Context, htmlPath string) ([]byt
 
 	writer.Close()
 
-	// ✅ Gotenberg 7 endpoint
 	req, err := http.NewRequestWithContext(ctx, "POST", g.baseURL+"/forms/html/convert", &requestBody)
 	if err != nil {
 		return nil, fmt.Errorf("cannot create request: %w", err)

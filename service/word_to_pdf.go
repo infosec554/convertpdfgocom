@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"convertpdfgo/api/models"
-	"convertpdfgo/pkg/gotenberg" // ⬅️ Gotenberg client paketini import qilasiz
+	"convertpdfgo/pkg/gotenberg"
 	"convertpdfgo/pkg/logger"
 	"convertpdfgo/storage"
 )
@@ -22,7 +22,7 @@ type WordToPDFService interface {
 type wordToPDFService struct {
 	stg       storage.IStorage
 	log       logger.ILogger
-	gotClient gotenberg.Client // ⬅️ Gotenberg interfeysi bilan
+	gotClient gotenberg.Client
 }
 
 func NewWordToPDFService(stg storage.IStorage, log logger.ILogger, gotClient gotenberg.Client) WordToPDFService {
@@ -42,7 +42,6 @@ func (s *wordToPDFService) Create(ctx context.Context, req models.WordToPDFReque
 		return "", err
 	}
 
-	// 🔥 Gotenbergdan PDF faylni olish
 	resultBytes, err := s.gotClient.WordToPDF(ctx, file.FilePath)
 	if err != nil {
 		s.log.Error("Gotenberg conversion failed", logger.Error(err))

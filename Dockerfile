@@ -1,5 +1,5 @@
 # ===== Build stage =====
-FROM golang:1.23 AS build
+FROM golang:1.24 AS build
 WORKDIR /src
 
 # Modules cache
@@ -9,23 +9,21 @@ RUN go mod download
 # Source
 COPY . .
 
-# --- bu yerda main paket yo'lini parametr qilamiz ---
-ARG MAIN_PKG=./cmd/main.go   # agar sendeda boshqacha bo'lsa, compose'da override qilamiz
-ARG VERSION=unknown
-ARG COMMIT=dirty
-
-# Build oldidan yo'l borligini tekshirib qo'yamiz (file yoki dir bo'lishi mumkin)
-RUN [ -f "${MAIN_PKG}" ] || [ -d "${MAIN_PKG}" ] || (echo "MAIN_PKG not found: ${MAIN_PKG}"; ls -la; echo; find . -maxdepth 3 -type f -name 'main.go' -print; exit 1)
-
+# Build
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
-    go build -trimpath \
-      -ldflags "-s -w -X main.version=${VERSION} -X main.commit=${COMMIT}" \
-      -o /out/app "${MAIN_PKG}"
+    go build -trimpath -ldflags "-s -w" -o /out/app ./cmd/main.go
 
 # ===== Runtime stage =====
 FROM gcr.io/distroless/static-debian12:nonroot
 WORKDIR /app
+
+# Migrations papkasini ko'chirish
+COPY --from=build /src/migrations /app/migrations
 COPY --from=build /out/app /app/app
+
+# Storage papkasi uchun
+VOLUME /app/storage
+
 EXPOSE 8080
 USER nonroot:nonroot
 ENTRYPOINT ["/app/app"]

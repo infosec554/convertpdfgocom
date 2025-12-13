@@ -10,7 +10,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pdfcpu/pdfcpu/pkg/api"
-	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/model"
 
 	"convertpdfgo/api/models"
 	"convertpdfgo/pkg/logger"
@@ -35,26 +34,24 @@ func NewSplitService(stg storage.IStorage, log logger.ILogger) SplitService {
 }
 
 func (s *splitService) Create(ctx context.Context, req models.CreateSplitJobRequest, userID *string) (string, error) {
-	s.log.Info("SplitService.Create called")
-	s.log.Info("Received InputFileID", logger.String("input_file_id", req.InputFileID))
-	s.log.Info("Received SplitRanges", logger.String("split_ranges", req.SplitRanges))
-	if userID != nil {
-		s.log.Info("UserID", logger.String("user_id", *userID))
-	} else {
-		s.log.Info("UserID", logger.String("user_id", "guest"))
-	}
+	s.log.Info("SplitService.Create called", logger.String("inputFileID", req.InputFileID))
 
-	// 1. Faylni bazadan olish
+	// 1. Kiruvchi faylni olish
 	file, err := s.stg.File().GetByID(ctx, req.InputFileID)
 	if err != nil {
-		s.log.Error("❌ input file not found", logger.Error(err))
+		s.log.Error("Input file not found", logger.String("fileID", req.InputFileID), logger.Error(err))
 		return "", err
 	}
-	s.log.Info("✅ Input file found", logger.String("file_path", file.FilePath))
 
-	// 2. SplitJob struct
+	// Fayl mavjudligini tekshirish
+	if _, err := os.Stat(file.FilePath); os.IsNotExist(err) {
+		s.log.Error("Input file does not exist", logger.String("filePath", file.FilePath))
+		return "", fmt.Errorf("input file does not exist: %s", file.FilePath)
+	}
+
+	// 2. Job yaratish
 	job := &models.SplitJob{
-		ID:            uuid.New().String(),
+		ID:            uuid.NewString(),
 		UserID:        userID,
 		InputFileID:   req.InputFileID,
 		SplitRanges:   req.SplitRanges,
@@ -62,96 +59,85 @@ func (s *splitService) Create(ctx context.Context, req models.CreateSplitJobRequ
 		Status:        "pending",
 		CreatedAt:     time.Now(),
 	}
-	s.log.Info("✅ Split job created", logger.String("job_id", job.ID))
 
-	// 3. Jobni bazaga yozish
 	if err := s.stg.Split().Create(ctx, job); err != nil {
-		s.log.Error("❌ failed to create split job", logger.Error(err))
+		s.log.Error("Failed to create split job", logger.Error(err))
 		return "", err
 	}
-	s.log.Info("✅ Split job saved to DB")
 
-	// 4. Split qilish
-	inputPath := file.FilePath
-	outputDir := fmt.Sprintf("storage/split/%s", job.ID)
-
+	// 3. Output papkasini tayyorlash
+	outputDir := filepath.Join("storage", "split", job.ID)
 	if err := os.MkdirAll(outputDir, os.ModePerm); err != nil {
-		s.log.Error("❌ failed to create output dir", logger.Error(err))
-		return "", err
-	}
-	s.log.Info("✅ Output directory created", logger.String("output_dir", outputDir))
-
-	// 5. Split PDF into separate files
-	config := model.NewDefaultConfiguration()
-	span := 1
-	if strings.TrimSpace(req.SplitRanges) != "" {
-		if n, err := fmt.Sscanf(req.SplitRanges, "%d", &span); err != nil || n != 1 || span < 1 {
-			s.log.Error("❌ invalid split range span", logger.String("value", req.SplitRanges), logger.Error(err))
-			return "", fmt.Errorf("invalid split range span: %s", req.SplitRanges)
-		}
-	}
-	s.log.Info("✅ Starting PDF split...", logger.Int("span", span))
-
-	if err := api.SplitFile(inputPath, outputDir, span, config); err != nil {
-		s.log.Error("❌ failed to split PDF", logger.Error(err))
-		return "", err
-	}
-	s.log.Info("✅ PDF split completed")
-
-	// 6. Output fayllarni o‘qish va DBga saqlash
-	files, err := os.ReadDir(outputDir)
-	if err != nil {
-		s.log.Error("❌ failed to read output dir", logger.Error(err))
+		s.log.Error("Failed to create output dir", logger.Error(err))
 		return "", err
 	}
 
-	for _, f := range files {
-		if f.IsDir() || !strings.HasSuffix(f.Name(), ".pdf") {
+	// 4. PDF ni bo'lish (pdfcpu)
+	// SplitRanges formati: "1-3,4-5,6" -> [1-3], [4-5], [6]
+	ranges := strings.Split(req.SplitRanges, ",")
+	var outputFileIDs []string
+
+	for i, r := range ranges {
+		r = strings.TrimSpace(r)
+		outputPath := filepath.Join(outputDir, fmt.Sprintf("part_%d.pdf", i+1))
+
+		// pdfcpu ExtractPages - string formatda sahifalar kerak: "1-3" yoki "5"
+		if err := api.ExtractPagesFile(file.FilePath, outputDir, []string{r}, nil); err != nil {
+			s.log.Error("pdfcpu extract failed", logger.String("range", r), logger.Error(err))
 			continue
 		}
 
-		fullPath := filepath.Join(outputDir, f.Name())
-		fi, err := os.Stat(fullPath)
+		// pdfcpu output faylni qidirish va nomini o'zgartirish
+		extractedFile := filepath.Join(outputDir, filepath.Base(file.FilePath))
+		if _, err := os.Stat(extractedFile); err == nil {
+			os.Rename(extractedFile, outputPath)
+		}
+
+		// 5. Output faylni saqlash
+		fi, err := os.Stat(outputPath)
 		if err != nil {
-			s.log.Error("❌ failed to stat split file", logger.String("path", fullPath), logger.Error(err))
+			s.log.Error("Cannot stat output file", logger.Error(err))
 			continue
 		}
 
+		outputID := uuid.NewString()
 		newFile := models.File{
-			ID:         uuid.New().String(),
+			ID:         outputID,
 			UserID:     userID,
-			FileName:   f.Name(),
-			FilePath:   fullPath,
+			FileName:   fmt.Sprintf("split_part_%d.pdf", i+1),
+			FilePath:   outputPath,
 			FileType:   "application/pdf",
 			FileSize:   fi.Size(),
 			UploadedAt: time.Now(),
 		}
 
-		fileID, err := s.stg.File().Save(ctx, newFile)
-		if err != nil {
-			s.log.Error("❌ failed to save split file", logger.String("file", f.Name()), logger.Error(err))
+		if _, err := s.stg.File().Save(ctx, newFile); err != nil {
+			s.log.Error("Failed to save output file", logger.Error(err))
 			continue
 		}
-		s.log.Info("✅ Output file saved", logger.String("file_id", fileID), logger.String("name", f.Name()))
 
-		job.OutputFileIDs = append(job.OutputFileIDs, fileID)
+		outputFileIDs = append(outputFileIDs, outputID)
 	}
 
-	// 7. Jobni yangilash
-	if err := s.stg.Split().UpdateOutputFiles(ctx, job.ID, job.OutputFileIDs); err != nil {
-		s.log.Error("❌ failed to update split job", logger.Error(err))
+	// 6. Job ni update qilish
+	job.OutputFileIDs = outputFileIDs
+	job.Status = "done"
+
+	if err := s.stg.Split().Update(ctx, job); err != nil {
+		s.log.Error("Failed to update split job", logger.Error(err))
 		return "", err
 	}
-	s.log.Info("✅ Split job updated with output files", logger.Int("total_files", len(job.OutputFileIDs)))
 
+	s.log.Info("Split job completed", logger.String("jobID", job.ID), logger.Int("outputCount", len(outputFileIDs)))
 	return job.ID, nil
 }
 
 func (s *splitService) GetByID(ctx context.Context, id string) (*models.SplitJob, error) {
 	job, err := s.stg.Split().GetByID(ctx, id)
 	if err != nil {
-		s.log.Error("failed to get split job", logger.Error(err))
+		s.log.Error("Failed to get split job", logger.Error(err))
 		return nil, err
 	}
 	return job, nil
 }
+

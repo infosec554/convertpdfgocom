@@ -9,13 +9,11 @@ import (
 	"convertpdfgo/storage"
 )
 
-// PublicStatsService — servis
 type PublicStatsService struct {
 	stg storage.IStorage
 	log logger.ILogger
 }
 
-// NewPublicStatsService — constructor
 func NewPublicStatsService(stg storage.IStorage, log logger.ILogger) *PublicStatsService {
 	return &PublicStatsService{
 		stg: stg,
@@ -23,7 +21,6 @@ func NewPublicStatsService(stg storage.IStorage, log logger.ILogger) *PublicStat
 	}
 }
 
-// formatNumber — sonlarni K / M formatida chiqarish
 func formatNumber(n int64) string {
 	if n >= 1_000_000 {
 		return fmt.Sprintf("%.3fM", float64(n)/1_000_000)
@@ -33,7 +30,10 @@ func formatNumber(n int64) string {
 	return fmt.Sprintf("%d", n)
 }
 
-// GetDisplayStats — statistikani formatlangan holda olish
+func (s PublicStatsService) GetStats(ctx context.Context) (models.PublicStats, error) {
+	return s.stg.PublicStats().GetPublicStats(ctx)
+}
+
 func (s PublicStatsService) GetDisplayStats(ctx context.Context) (models.PublicStatsDisplay, error) {
 	raw, err := s.stg.PublicStats().GetPublicStats(ctx)
 	if err != nil {

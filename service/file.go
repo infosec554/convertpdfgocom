@@ -14,15 +14,14 @@ import (
 
 type FileService interface {
 	Upload(ctx context.Context, req models.File) (string, error)
+	Save(ctx context.Context, req models.File) (string, error)
 	Get(ctx context.Context, id string) (models.File, error)
+	GetByID(ctx context.Context, id string) (models.File, error)
 	Delete(ctx context.Context, id string) error
 	List(ctx context.Context, userID string) ([]models.File, error)
+	GetOldFiles(ctx context.Context, olderThanDays int) ([]models.OldFile, error)
 	CleanupOldFiles(ctx context.Context, olderThanDays int) (int, error)
-
 	ListPendingDeletionFiles(ctx context.Context, expirationMinutes int) ([]models.File, error)
-
-	AdminListFiles(ctx context.Context, f models.AdminFileFilter) ([]models.FileRow, error)
-	AdminCountFiles(ctx context.Context, f models.AdminFileFilter) (int64, error)
 }
 
 type fileService struct {
@@ -32,12 +31,11 @@ type fileService struct {
 
 func NewFileService(stg storage.IStorage, log logger.ILogger) FileService {
 	return &fileService{
-		stg: stg.File(), // storageManager.File()
+		stg: stg.File(),
 		log: log,
 	}
 }
 
-// Upload - faylni DBga yozish (upload jarayoni)
 func (s *fileService) Upload(ctx context.Context, req models.File) (string, error) {
 	s.log.Info("FileService.Upload called", logger.String("file_name", req.FileName))
 
@@ -52,17 +50,26 @@ func (s *fileService) Upload(ctx context.Context, req models.File) (string, erro
 	return id, nil
 }
 
-// Get - faylni ID orqali olish
+func (s *fileService) Save(ctx context.Context, req models.File) (string, error) {
+	return s.stg.Save(ctx, req)
+}
+
 func (s *fileService) Get(ctx context.Context, id string) (models.File, error) {
 	return s.stg.GetByID(ctx, id)
 }
 
-// Delete - faylni o‘chirish
+func (s *fileService) GetByID(ctx context.Context, id string) (models.File, error) {
+	return s.stg.GetByID(ctx, id)
+}
+
+func (s *fileService) GetOldFiles(ctx context.Context, olderThanDays int) ([]models.OldFile, error) {
+	return s.stg.GetOldFiles(ctx, olderThanDays)
+}
+
 func (s *fileService) Delete(ctx context.Context, id string) error {
 	return s.stg.Delete(ctx, id)
 }
 
-// List - user fayllari ro‘yxati
 func (s *fileService) List(ctx context.Context, userID string) ([]models.File, error) {
 	return s.stg.ListByUser(ctx, userID)
 }
@@ -99,14 +106,8 @@ func (s *fileService) CleanupOldFiles(ctx context.Context, olderThanDays int) (i
 	s.log.Info("CleanupOldFiles finished", logger.Int("files_deleted", count))
 	return count, nil
 }
+
 func (s *fileService) ListPendingDeletionFiles(ctx context.Context, expirationMinutes int) ([]models.File, error) {
 	s.log.Info("FileService.ListPendingDeletionFiles called", logger.Int("expiration_minutes", expirationMinutes))
 	return s.stg.GetPendingDeletionFiles(ctx, expirationMinutes)
 }
-func (s *fileService) AdminListFiles(ctx context.Context, f models.AdminFileFilter) ([]models.FileRow, error) {
-	return s.stg.AdminListFiles(ctx, f)
-}
-func (s *fileService) AdminCountFiles(ctx context.Context, f models.AdminFileFilter) (int64, error) {
-	return s.stg.AdminCountFiles(ctx, f)
-}
-

@@ -1,48 +1,71 @@
 package middleware
 
 import (
+	"context"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"golang.org/x/time/rate"
+	"github.com/redis/go-redis/v9"
 )
 
-var (
-	visitors  = make(map[string]*rate.Limiter)
-	mu        sync.Mutex
-	rateLimit = rate.Every(1 * time.Second) // 1 request per second
-	burst     = 100
-)
+type RateLimiter struct {
+	client   *redis.Client
+	limit    int
+	window   time.Duration
+}
 
-func getVisitor(key string) *rate.Limiter {
-	mu.Lock()
-	defer mu.Unlock()
-
-	limiter, exists := visitors[key]
-	if !exists {
-		limiter = rate.NewLimiter(rateLimit, burst)
-		visitors[key] = limiter
+func NewRateLimiter(client *redis.Client, limit int, window time.Duration) *RateLimiter {
+	return &RateLimiter{
+		client: client,
+		limit:  limit,
+		window: window,
 	}
-	return limiter
+}
+
+func (rl *RateLimiter) Allow(ctx context.Context, key string) (bool, error) {
+	pipe := rl.client.Pipeline()
+
+	incr := pipe.Incr(ctx, key)
+	pipe.Expire(ctx, key, rl.window)
+
+	_, err := pipe.Exec(ctx)
+	if err != nil {
+		return false, err
+	}
+
+	count, err := incr.Result()
+	if err != nil {
+		return false, err
+	}
+
+	return count <= int64(rl.limit), nil
 }
 
 func RateLimiterMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Avval user_id borligini tekshiramiz
+		c.Next()
+	}
+}
+
+func RateLimiterWithRedis(client *redis.Client, limit int, window time.Duration) gin.HandlerFunc {
+	rl := NewRateLimiter(client, limit, window)
+
+	return func(c *gin.Context) {
 		var key string
 		if userID, exists := c.Get("user_id"); exists {
-			key = "user:" + userID.(string)
+			key = "ratelimit:user:" + userID.(string)
 		} else {
-			// Agar login qilmagan bo‘lsa: IP + User-Agent orqali soft ajratish
-			ua := c.GetHeader("User-Agent")
-			key = "ip:" + c.ClientIP() + "_" + ua
+			key = "ratelimit:ip:" + c.ClientIP()
 		}
 
-		limiter := getVisitor(key)
+		allowed, err := rl.Allow(c.Request.Context(), key)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Rate limiter error"})
+			return
+		}
 
-		if !limiter.Allow() {
+		if !allowed {
 			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{"error": "Too many requests"})
 			return
 		}

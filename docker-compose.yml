@@ -1,6 +1,9 @@
+version: "3.9"
+
 services:
   postgres:
     image: postgres:15
+    container_name: pdfbot_postgres
     env_file: .env
     environment:
       - POSTGRES_DB=${POSTGRES_DB}
@@ -12,31 +15,18 @@ services:
       - "127.0.0.1:${HOST_POSTGRES_PORT:-5433}:5432"
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB} -h 127.0.0.1 -p 5432 || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-
-  redis:
-    image: redis:7-alpine
-    command: ["redis-server","--requirepass","${REDIS_PASSWORD}","--maxmemory","256mb","--maxmemory-policy","allkeys-lru"]
-    env_file: .env
-    volumes:
-      - ./data/redis:/data
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "PING"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 10
 
   gotenberg:
     image: gotenberg/gotenberg:8
-    env_file: .env
+    container_name: pdfbot_gotenberg
     environment:
       - LOG_LEVEL=info
-      - CHROMIUM_MAX_CONCURRENT_ROUTES=1
-      - LIBREOFFICE_MAX_CONCURRENT_CONVERSIONS=1
+      - CHROMIUM_DISABLE_ROUTES=true
+      - LIBREOFFICE_MAX_CONCURRENT_CONVERSIONS=2
     ports:
       - "127.0.0.1:${GOTENBERG_HOST_PORT:-3008}:3000"
     restart: unless-stopped
@@ -50,32 +40,28 @@ services:
     build:
       context: .
       dockerfile: ./Dockerfile
-      args:
-        - VERSION=${SERVICE_NAME:-convertpdfgo}
-        - COMMIT=local
-        - MAIN_PKG=./cmd/app/main.go   # <--- sendagi HAQIQIY yo'lga almashtir!
+    container_name: pdfbot_app
     env_file: .env
     environment:
-      - APP_PORT=${APP_PORT}
-      - APP_ENV=${APP_ENV}
-      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
-      - REDIS_ADDR=${REDIS_HOST}:${REDIS_PORT}
-      - REDIS_PASSWORD=${REDIS_PASSWORD}
-      - GOTENBERG_URL=${GOTENBERG_URL}
-      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - GOTENBERG_URL=http://gotenberg:3000
+      - BOT_TOKEN=${BOT_TOKEN}
+      - ADMIN_USER_ID=${ADMIN_USER_ID}
+      - SERVICE_NAME=${SERVICE_NAME}
       - LOGGER_LEVEL=${LOGGER_LEVEL}
+    volumes:
+      - ./migrations:/app/migrations
+      - ./storage:/app/storage
     depends_on:
       postgres:
         condition: service_healthy
-      redis:
-        condition: service_healthy
       gotenberg:
         condition: service_healthy
-    ports:
-      - "127.0.0.1:${APP_PORT}:${APP_PORT}"
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:${APP_PORT}/healthz || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
+
+volumes:
+  pgdata:

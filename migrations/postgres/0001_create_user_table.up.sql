@@ -13,7 +13,8 @@ END $$;
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     status user_status_enum NOT NULL DEFAULT 'active',
-    role user_role_enum NOT NULL DEFAULT 'user', -- "admin" yoki "user"
+    role user_role_enum NOT NULL DEFAULT 'user', -- "admin" yoki "user"nimalar qiloladi bot haqida aytib ber
+    
     name VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
     password VARCHAR(255) NOT NULL,

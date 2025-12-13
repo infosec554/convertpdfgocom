@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bot Statistics</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--tg-theme-bg-color, #fff);
+            color: var(--tg-theme-text-color, #000);
+            padding: 20px;
+            margin: 0;
+        }
+
+        .card {
+            background-color: var(--tg-theme-secondary-bg-color, #f5f5f5);
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        h2 {
+            margin: 0;
+            font-size: 24px;
+        }
+
+        p {
+            margin: 5px 0 0;
+            font-size: 14px;
+            opacity: 0.7;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+    <h1 style="text-align: center; margin-bottom: 20px;">Start Convert PDF Go !!!</h1>
+
+    <!-- Cards Container -->
+    <div id="cards">
+        <div class="card" id="card1">
+            <h2 id="val1">Loading...</h2>
+            <p id="lbl1">...</p>
+        </div>
+        <div class="card" id="card2">
+            <h2 id="val2">...</h2>
+            <p id="lbl2">...</p>
+        </div>
+        <div class="card" id="card3" class="hidden">
+            <h2 id="val3">...</h2>
+            <p id="lbl3">...</p>
+        </div>
+    </div>
+
+    <!-- Chart Container -->
+    <div class="card" id="chartCard">
+        <canvas id="statsChart"></canvas>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+
+        const ADMIN_ID = {{ .admin_id }};
+        const userID = tg.initDataUnsafe?.user?.id;
+
+        let apiUrl = '/api/stats';
+
+        // Agar user admin bo'lmasa, user_id yuboramiz
+        if (userID && userID != ADMIN_ID) {
+            apiUrl += '?user_id=' + userID;
+        }
+
+        fetch(apiUrl)
+            .then(response => response.json())
+            .then(data => {
+                if (data.type === 'user') {
+                    // USER VIEW
+                    document.getElementById('lbl1').innerText = 'My Coins';
+                    document.getElementById('val1').innerText = data.coins;
+
+                    document.getElementById('lbl2').innerText = 'Total Conversions';
+                    document.getElementById('val2').innerText = data.total_used;
+
+                    document.getElementById('card3').classList.remove('hidden');
+                    document.getElementById('lbl3').innerText = 'Referrals';
+                    document.getElementById('val3').innerText = data.referral_count;
+
+                    // Hide Chart for user
+                    document.getElementById('chartCard').style.display = 'none';
+
+                } else {
+                    // ADMIN (GLOBAL) VIEW
+                    document.getElementById('lbl1').innerText = 'Total Users';
+                    document.getElementById('val1').innerText = data.total_users;
+
+                    document.getElementById('lbl2').innerText = 'Total Usage';
+                    document.getElementById('val2').innerText = data.total_usage;
+
+                    document.getElementById('card3').style.display = 'none';
+
+                    // Show Chart
+                    const ctx = document.getElementById('statsChart').getContext('2d');
+                    new Chart(ctx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: ['Compress', 'Word', 'Excel', 'PPT', 'Image'],
+                            datasets: [{
+                                data: [
+                                    data.compress_count || 10,
+                                    data.word_to_pdf_count || 5,
+                                    data.excel_to_pdf_count || 3,
+                                    data.ppt_to_pdf_count || 2,
+                                    data.jpg_to_pdf_count || 8
+                                ],
+                                backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF']
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: {
+                                legend: {
+                                    position: 'bottom',
+                                    labels: {
+                                        color: getComputedStyle(document.body).getPropertyValue('--tg-theme-text-color') || '#000'
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                document.getElementById('val1').innerText = 'Error';
+            });
+    </script>
+</body>
+
+</html>

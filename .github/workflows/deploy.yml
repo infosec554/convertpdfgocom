@@ -47,12 +47,18 @@ jobs:
           push: true
           tags: infosec554/convertpdfgo:latest
 
+      - name: Setup SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: "100.48.211.97"
           username: ubuntu
-          key: ${{ secrets.SSH_KEY }}
+          key_path: ~/.ssh/deploy_key
           script: |
             # Login to Docker Hub on server (optional if public repo, but good practice)
             echo "dckr_pat_UUKDAiNMHloJh-EhqaZ2ELo1sp4" | docker login -u "infosec554" --password-stdin

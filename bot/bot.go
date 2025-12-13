@@ -253,6 +253,10 @@ func (b *Bot) handleUpdate(ctx context.Context, update tgbotapi.Update) {
 				b.sendBackupExcel(ctx, update.Message.Chat.ID)
 				return
 			case "↩️ User Mode":
+				// Clear any active states
+				b.userStates.Delete(update.Message.From.ID)
+				b.mergeContext.Delete(update.Message.From.ID)
+				b.splitContext.Delete(update.Message.From.ID)
 				lang := b.getUserLang(ctx, update.Message.From.ID)
 				b.sendUserMenu(update.Message.Chat.ID, lang)
 				return
@@ -301,6 +305,9 @@ func (b *Bot) handleUpdate(ctx context.Context, update tgbotapi.Update) {
 				b.finishMergeFlow(ctx, update.Message.Chat.ID, update.Message.From.ID)
 				return
 			}
+			// Agar merge state bo'lmasa, oddiy xabar
+			b.sendMessage(update.Message.Chat.ID, "ℹ️ Hozirda birlashtirish jarayoni yo'q. Avval \"Merge PDF\" ni tanlang.")
+			return
 		}
 
 		// 5.1 Split pages state - sahifalar kiritilganda

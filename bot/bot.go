@@ -14,6 +14,7 @@ import (
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/google/uuid"
+	"github.com/xuri/excelize/v2"
 
 	"convertpdfgo/api/models"
 	"convertpdfgo/pkg/logger"
@@ -248,6 +249,9 @@ func (b *Bot) handleUpdate(ctx context.Context, update tgbotapi.Update) {
 				return
 			case "👥 Users List":
 				b.sendUserList(ctx, update.Message.Chat.ID)
+				return
+			case "🗄 Backup":
+				b.sendBackupExcel(ctx, update.Message.Chat.ID)
 				return
 			case "↩️ User Mode":
 				lang := b.getUserLang(ctx, update.Message.From.ID)
@@ -1195,7 +1199,10 @@ func (b *Bot) saveUploadedFile(ctx context.Context, message *tgbotapi.Message) (
 		return "", err
 	}
 
-	fi, _ := os.Stat(filePath)
+	fi, err := os.Stat(filePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to stat file: %w", err)
+	}
 	fileID := uuid.NewString()
 
 	file := models.File{
@@ -1257,7 +1264,10 @@ func (b *Bot) sendAdminPanel(chatID int64) {
 		),
 		tgbotapi.NewKeyboardButtonRow(
 			tgbotapi.NewKeyboardButton("👥 Users List"),
-			tgbotapi.NewKeyboardButton("👤 User Mode"),
+			tgbotapi.NewKeyboardButton("� Backup"),
+		),
+		tgbotapi.NewKeyboardButtonRow(
+			tgbotapi.NewKeyboardButton("↩️ User Mode"),
 		),
 	)
 	keyboard.ResizeKeyboard = true
@@ -2051,6 +2061,108 @@ func (b *Bot) sendUserList(ctx context.Context, chatID int64) {
 	doc := tgbotapi.NewDocument(chatID, tgbotapi.FilePath(csvPath))
 	doc.Caption = fmt.Sprintf("👥 Foydalanuvchilar ro'yxati\n📊 Jami: %d ta user\n📅 %s", len(users), time.Now().Format("2006-01-02 15:04"))
 	b.api.Send(doc)
+}
+
+func (b *Bot) sendBackupExcel(ctx context.Context, chatID int64) {
+	b.sendMessage(chatID, "⏳ Excel fayl tayyorlanmoqda...")
+
+	users, err := b.services.BotUser().GetAllUsers(ctx)
+	if err != nil {
+		b.sendMessage(chatID, "❌ Xatolik yuz berdi: "+err.Error())
+		return
+	}
+
+	if len(users) == 0 {
+		b.sendMessage(chatID, "ℹ️ Foydalanuvchilar topilmadi")
+		return
+	}
+
+	f := excelize.NewFile()
+	defer func() {
+		if err := f.Close(); err != nil {
+			b.log.Error("Excel fileni yopishda xatolik", logger.Error(err))
+		}
+	}()
+
+	// Sheet nomini o'zgartirish (default "Sheet1")
+	sheetName := "Users"
+	f.SetSheetName("Sheet1", sheetName)
+
+	// Header stili
+	style, err := f.NewStyle(&excelize.Style{
+		Font: &excelize.Font{
+			Bold: true,
+			Size: 12,
+		},
+		Fill: excelize.Fill{
+			Type:    "pattern",
+			Color:   []string{"#CCCCCC"},
+			Pattern: 1,
+		},
+	})
+	if err == nil {
+		f.SetCellStyle(sheetName, "A1", "H1", style)
+	}
+
+	// Headerlar
+	headers := []interface{}{"TelegramID", "Username", "FirstName", "Coins", "TotalUsed", "Language", "ReferredBy", "CreatedAt"}
+	if err := f.SetSheetRow(sheetName, "A1", &headers); err != nil {
+		b.log.Error("Header yozishda xatolik", logger.Error(err))
+	}
+
+	// Ma'lumotlarni yozish
+	for i, u := range users {
+		row := i + 2
+		refBy := ""
+		if u.ReferredBy != nil {
+			refBy = fmt.Sprintf("%d", *u.ReferredBy)
+		}
+
+		// CreatedAt ni string qilish
+		createdAt := u.CreatedAt.Format("2006-01-02 15:04:05")
+
+		userData := []interface{}{
+			u.TelegramID,
+			u.Username,
+			u.FirstName,
+			u.Coins,
+			u.TotalUsed,
+			u.Language,
+			refBy,
+			createdAt,
+		}
+
+		cell := fmt.Sprintf("A%d", row)
+		if err := f.SetSheetRow(sheetName, cell, &userData); err != nil {
+			b.log.Error("Row yozishda xatolik", logger.Error(err))
+		}
+	}
+
+	// Ustun kengligini moslashtirish (taxminiy)
+	f.SetColWidth(sheetName, "A", "A", 5)
+	f.SetColWidth(sheetName, "B", "B", 15)
+	f.SetColWidth(sheetName, "C", "D", 20)
+	f.SetColWidth(sheetName, "E", "F", 10)
+	f.SetColWidth(sheetName, "H", "I", 20)
+
+	// Faylni saqlash
+	fileName := fmt.Sprintf("backup_users_%s.xlsx", time.Now().Format("2006-01-02_15-04-05"))
+	filePath := filepath.Join("/tmp", fileName)
+	if err := f.SaveAs(filePath); err != nil {
+		b.sendMessage(chatID, "❌ Faylni saqlashda xatolik!")
+		b.log.Error("SaveAs error", logger.Error(err))
+		return
+	}
+	defer os.Remove(filePath)
+
+	// Yuborish
+	doc := tgbotapi.NewDocument(chatID, tgbotapi.FilePath(filePath))
+	doc.Caption = fmt.Sprintf("🗄 <b>Full Backup</b>\n👥 Users: %d\n📅 Date: %s", len(users), time.Now().Format("2006-01-02 15:04"))
+	doc.ParseMode = "HTML"
+	
+	if _, err := b.api.Send(doc); err != nil {
+		b.sendMessage(chatID, "❌ Yuborishda xatolik: "+err.Error())
+	}
 }
 
 func (b *Bot) resetMenuButton() {

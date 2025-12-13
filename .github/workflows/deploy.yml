@@ -51,7 +51,7 @@ jobs:
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.HOST }}
-          username: ${{ secrets.USERNAME }}
+          username: ubuntu
           key: ${{ secrets.SSH_KEY }}
           script: |
             # Login to Docker Hub on server (optional if public repo, but good practice)

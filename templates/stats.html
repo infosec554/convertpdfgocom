@@ -69,7 +69,7 @@
         const tg = window.Telegram.WebApp;
         tg.expand();
 
-        const ADMIN_ID = {{ .admin_id }};
+        const ADMIN_ID = Number("{{ .admin_id }}");
         const userID = tg.initDataUnsafe?.user?.id;
 
         let apiUrl = '/api/stats';

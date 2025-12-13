@@ -2000,24 +2000,57 @@ func (b *Bot) sendSubscriptionRequest(chatID int64, lang string) {
 }
 
 func (b *Bot) sendUserList(ctx context.Context, chatID int64) {
-	users, err := b.services.BotUser().GetTopUsers(ctx, 20)
+	// Barcha foydalanuvchilarni olish
+	users, err := b.services.BotUser().GetAllUsers(ctx)
 	if err != nil {
-		b.sendMessage(chatID, "❌ Xatolik yuz berdi")
+		b.sendMessage(chatID, "❌ Xatolik yuz berdi: "+err.Error())
 		return
 	}
 
-	var sb strings.Builder
-	sb.WriteString("👥 *Foydalanuvchilar Ro'yxati (Top 20)*\n\n")
-
-	for i, u := range users {
-		name := u.FirstName
-		if u.Username != "" {
-			name += " (@" + u.Username + ")"
-		}
-		sb.WriteString(fmt.Sprintf("%d. *%s* (ID: `%d`)\n💰 Coins: *%d* | 🛠 Used: *%d*\n\n", i+1, name, u.TelegramID, u.Coins, u.TotalUsed))
+	if len(users) == 0 {
+		b.sendMessage(chatID, "ℹ️ Foydalanuvchilar topilmadi")
+		return
 	}
 
-	b.sendMessage(chatID, sb.String())
+	// CSV fayl yaratish
+	csvPath := fmt.Sprintf("/tmp/users_backup_%s.csv", time.Now().Format("2006-01-02_15-04-05"))
+	file, err := os.Create(csvPath)
+	if err != nil {
+		b.sendMessage(chatID, "❌ Fayl yaratishda xatolik!")
+		return
+	}
+	defer func() {
+		file.Close()
+		os.Remove(csvPath) // Yuborilgandan keyin o'chirish
+	}()
+
+	// CSV header
+	file.WriteString("TelegramID,Username,FirstName,Coins,TotalUsed,Language,ReferredBy,CreatedAt\n")
+
+	// Userlarni yozish
+	for _, u := range users {
+		refBy := ""
+		if u.ReferredBy != nil {
+			refBy = fmt.Sprintf("%d", *u.ReferredBy)
+		}
+		line := fmt.Sprintf("%d,%s,%s,%d,%d,%s,%s,%s\n",
+			u.TelegramID,
+			u.Username,
+			u.FirstName,
+			u.Coins,
+			u.TotalUsed,
+			u.Language,
+			refBy,
+			u.CreatedAt.Format("2006-01-02 15:04:05"),
+		)
+		file.WriteString(line)
+	}
+	file.Sync()
+
+	// Faylni yuborish
+	doc := tgbotapi.NewDocument(chatID, tgbotapi.FilePath(csvPath))
+	doc.Caption = fmt.Sprintf("👥 Foydalanuvchilar ro'yxati\n📊 Jami: %d ta user\n📅 %s", len(users), time.Now().Format("2006-01-02 15:04"))
+	b.api.Send(doc)
 }
 
 func (b *Bot) resetMenuButton() {

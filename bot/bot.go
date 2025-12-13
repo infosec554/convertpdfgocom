@@ -255,7 +255,7 @@ func (b *Bot) handleUpdate(ctx context.Context, update tgbotapi.Update) {
 				return
 			case "↩️ User Mode":
 				lang := b.getUserLang(ctx, update.Message.From.ID)
-				b.sendMainMenu(update.Message.Chat.ID, lang)
+				b.sendUserMenu(update.Message.Chat.ID, lang)
 				return
 			}
 		}
@@ -1234,7 +1234,10 @@ func (b *Bot) downloadFile(fileID, fileName string) (string, error) {
 	os.MkdirAll(dir, os.ModePerm)
 
 	filePath := filepath.Join(dir, uuid.NewString()+"_"+fileName)
-	out, _ := os.Create(filePath)
+	out, err := os.Create(filePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to create file: %w", err)
+	}
 	defer out.Close()
 
 	io.Copy(out, resp.Body)

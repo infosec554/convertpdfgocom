@@ -1,6 +1,6 @@
 module convertpdfgo
 
-go 1.24.5
+go 1.23.0
 
 require (
 	github.com/gin-gonic/gin v1.11.0

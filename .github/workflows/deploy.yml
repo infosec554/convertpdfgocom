@@ -38,7 +38,7 @@ jobs:
         uses: docker/login-action@v3
         with:
           username: infosec554
-          password: dckr_pat_PcpE8ggLzF4dFfXunRGh14LctZE
+          password: dckr_pat_UUKDAiNMHloJh-EhqaZ2ELo1sp4
 
       - name: Build and Push Docker image
         uses: docker/build-push-action@v5
@@ -55,7 +55,7 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           script: |
             # Login to Docker Hub on server (optional if public repo, but good practice)
-            echo "dckr_pat_PcpE8ggLzF4dFfXunRGh14LctZE" | docker login -u "infosec554" --password-stdin
+            echo "dckr_pat_UUKDAiNMHloJh-EhqaZ2ELo1sp4" | docker login -u "infosec554" --password-stdin
             
             # Stop existing container if running
             docker stop app || true

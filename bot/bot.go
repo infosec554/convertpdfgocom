@@ -1977,11 +1977,7 @@ func (b *Bot) checkSubscription(ctx context.Context, userID int64) (bool, string
 		return false, fmt.Sprintf("Error: %v", err)
 	}
 
-	b.log.Info("Subscription status", 
-		logger.String("channel", b.requiredChannel),
-		logger.Int64("user_id", userID),
-		logger.String("status", member.Status),
-	)
+
 
 	if member.Status == "member" || member.Status == "creator" || member.Status == "administrator" || member.Status == "restricted" {
 		return true, member.Status

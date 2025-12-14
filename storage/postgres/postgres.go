@@ -123,3 +123,7 @@ func (s *Store) Unlock() storage.IUnlockStorage {
 func (s *Store) PDFToJPG() storage.IPDFToJPGStorage {
 	return NewPDFToJPGRepo(s.pool, s.log)
 }
+
+func (s *Store) Protect() storage.IProtectStorage {
+	return NewProtectRepo(s.pool, s.log)
+}

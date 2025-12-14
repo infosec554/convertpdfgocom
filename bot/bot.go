@@ -31,7 +31,13 @@ const (
 	StateWatermarkUpload = "watermark_upload"    // Watermark: fayl kutish
 	StateWatermarkText   = "watermark_enter_text" // Watermark: matn kutish
 	StateUnlockUpload    = "unlock_upload_file"   // Unlock: fayl kutish
-	StatePDFToJPGUpload  = "pdf_to_jpg_upload"    // PDF to JPG: fayl kutish
+	StatePDFToJPGUpload        = "pdf_to_jpg_upload"
+	StateWordToPDFUpload       = "word_to_pdf_upload"
+	StateExcelToPDFUpload      = "excel_to_pdf_upload"
+	StatePowerPointToPDFUpload = "ppt_to_pdf_upload"
+	StateJPGToPDFUpload        = "jpg_to_pdf_upload"
+	StateProtectUpload         = "protect_upload_file"
+	StateProtectPassword       = "protect_enter_password"
 )
 
 type Bot struct {
@@ -307,6 +313,12 @@ func (b *Bot) handleUpdate(ctx context.Context, update tgbotapi.Update) {
 			return
 		}
 
+		// 4.6 Protect PDF Handling
+		if update.Message.Text == "🔒 Protect PDF" {
+			b.startProtectFlow(ctx, update.Message.Chat.ID, update.Message.From.ID)
+			return
+		}
+
 		// 5. Done command for merge
 		if update.Message.Text == "Done" || update.Message.Text == "/done" {
 			if state, ok := b.userStates.Load(update.Message.From.ID); ok && state == StateMergeUpload {
@@ -335,6 +347,26 @@ func (b *Bot) handleUpdate(ctx context.Context, update tgbotapi.Update) {
 			return
 		}
 
+		// 5.3 Watermark text state
+		if state, ok := b.userStates.Load(update.Message.From.ID); ok && state == StateWatermarkText {
+			if fid, ok := b.splitContext.Load(update.Message.From.ID); ok {
+				go b.processWatermark(ctx, update.Message.Chat.ID, update.Message.From.ID, fid.(string), update.Message.Text, lang)
+				b.userStates.Delete(update.Message.From.ID)
+				b.splitContext.Delete(update.Message.From.ID)
+				return
+			}
+		}
+
+		// 5.4 Protect Password State
+		if state, ok := b.userStates.Load(update.Message.From.ID); ok && state == StateProtectPassword {
+			if fid, ok := b.splitContext.Load(update.Message.From.ID); ok {
+				go b.processProtect(ctx, update.Message.Chat.ID, update.Message.From.ID, fid.(string), update.Message.Text, lang)
+				b.userStates.Delete(update.Message.From.ID)
+				b.splitContext.Delete(update.Message.From.ID)
+				return
+			}
+		}
+
 		// 6. Normal Menu Handling
 		if key := GetKey(lang, update.Message.Text); key != "" {
 			switch key {
@@ -343,15 +375,19 @@ func (b *Bot) handleUpdate(ctx context.Context, update tgbotapi.Update) {
 				b.sendMessage(update.Message.Chat.ID, T(lang, "select_file"))
 			case "word_to_pdf":
 				b.services.BotUser().SetCurrentAction(ctx, update.Message.From.ID, "word")
+				b.userStates.Store(update.Message.From.ID, StateWordToPDFUpload)
 				b.sendMessage(update.Message.Chat.ID, T(lang, "select_file"))
 			case "excel_to_pdf":
 				b.services.BotUser().SetCurrentAction(ctx, update.Message.From.ID, "excel")
+				b.userStates.Store(update.Message.From.ID, StateExcelToPDFUpload)
 				b.sendMessage(update.Message.Chat.ID, T(lang, "select_file"))
 			case "ppt_to_pdf":
 				b.services.BotUser().SetCurrentAction(ctx, update.Message.From.ID, "ppt")
+				b.userStates.Store(update.Message.From.ID, StatePowerPointToPDFUpload)
 				b.sendMessage(update.Message.Chat.ID, T(lang, "select_file"))
 			case "image_to_pdf":
 				b.services.BotUser().SetCurrentAction(ctx, update.Message.From.ID, "image")
+				b.userStates.Store(update.Message.From.ID, StateJPGToPDFUpload)
 				b.sendMessage(update.Message.Chat.ID, T(lang, "select_file"))
 			case "my_coins":
 				b.showUserCoins(ctx, update.Message.Chat.ID, update.Message.From.ID, lang)
@@ -452,15 +488,19 @@ func (b *Bot) handleCallback(ctx context.Context, callback *tgbotapi.CallbackQue
 		b.sendMessage(chatID, T(lang, "select_file"))
 	case "menu_word":
 		b.services.BotUser().SetCurrentAction(ctx, userID, "word")
+		b.userStates.Store(userID, StateWordToPDFUpload)
 		b.sendMessage(chatID, T(lang, "select_file"))
 	case "menu_excel":
 		b.services.BotUser().SetCurrentAction(ctx, userID, "excel")
+		b.userStates.Store(userID, StateExcelToPDFUpload)
 		b.sendMessage(chatID, T(lang, "select_file"))
 	case "menu_ppt":
 		b.services.BotUser().SetCurrentAction(ctx, userID, "ppt")
+		b.userStates.Store(userID, StatePowerPointToPDFUpload)
 		b.sendMessage(chatID, T(lang, "select_file"))
 	case "menu_image":
 		b.services.BotUser().SetCurrentAction(ctx, userID, "image")
+		b.userStates.Store(userID, StateJPGToPDFUpload)
 		b.sendMessage(chatID, T(lang, "select_file"))
 	case "menu_coins":
 		b.showUserCoins(ctx, chatID, userID, lang)
@@ -492,6 +532,8 @@ func (b *Bot) handleCallback(ctx context.Context, callback *tgbotapi.CallbackQue
 		b.startUnlockFlow(ctx, chatID, userID)
 	case "menu_pdf_to_jpg":
 		b.startPDFToJPGFlow(ctx, chatID, userID)
+	case "menu_protect":
+		b.startProtectFlow(ctx, chatID, userID)
 	}
 }
 
@@ -574,10 +616,12 @@ func (b *Bot) sendUserMenu(chatID int64, lang string) {
 		),
 		tgbotapi.NewKeyboardButtonRow(
 			tgbotapi.NewKeyboardButton(T(lang, "watermark")),
+			tgbotapi.NewKeyboardButton(T(lang, "watermark")),
 			tgbotapi.NewKeyboardButton(T(lang, "unlock_pdf")),
 		),
 		tgbotapi.NewKeyboardButtonRow(
 			tgbotapi.NewKeyboardButton(T(lang, "pdf_to_jpg")),
+			tgbotapi.NewKeyboardButton("🔒 Protect PDF"),
 		),
 		tgbotapi.NewKeyboardButtonRow(
 			tgbotapi.NewKeyboardButton(T(lang, "my_coins")),
@@ -775,7 +819,7 @@ func (b *Bot) handleDocument(ctx context.Context, message *tgbotapi.Message) {
 	if state, ok := b.userStates.Load(userID); ok && state == StateMergeUpload {
 		fileID, err := b.saveUploadedFile(ctx, message)
 		if err != nil {
-			b.sendMessage(message.Chat.ID, "❌ Faylni saqlashda xatolik!")
+			b.sendMessage(message.Chat.ID, "❌ Faylni saqlashda xatolik: "+err.Error())
 			return
 		}
 
@@ -801,7 +845,7 @@ func (b *Bot) handleDocument(ctx context.Context, message *tgbotapi.Message) {
 
 		fileID, err := b.saveUploadedFile(ctx, message)
 		if err != nil {
-			b.sendMessage(message.Chat.ID, "❌ Faylni saqlashda xatolik!")
+			b.sendMessage(message.Chat.ID, "❌ Faylni saqlashda xatolik: "+err.Error())
 			return
 		}
 
@@ -822,7 +866,7 @@ func (b *Bot) handleDocument(ctx context.Context, message *tgbotapi.Message) {
 
 		fileID, err := b.saveUploadedFile(ctx, message)
 		if err != nil {
-			b.sendMessage(message.Chat.ID, "❌ Faylni saqlashda xatolik!")
+			b.sendMessage(message.Chat.ID, "❌ Faylni saqlashda xatolik: "+err.Error())
 			return
 		}
 
@@ -843,7 +887,7 @@ func (b *Bot) handleDocument(ctx context.Context, message *tgbotapi.Message) {
 
 		fileID, err := b.saveUploadedFile(ctx, message)
 		if err != nil {
-			b.sendMessage(message.Chat.ID, "❌ Faylni saqlashda xatolik!")
+			b.sendMessage(message.Chat.ID, "❌ Faylni saqlashda xatolik: "+err.Error())
 			return
 		}
 
@@ -865,7 +909,7 @@ func (b *Bot) handleDocument(ctx context.Context, message *tgbotapi.Message) {
 
 		fileID, err := b.saveUploadedFile(ctx, message)
 		if err != nil {
-			b.sendMessage(message.Chat.ID, "❌ Faylni saqlashda xatolik!")
+			b.sendMessage(message.Chat.ID, "❌ Faylni saqlashda xatolik: "+err.Error())
 			return
 		}
 
@@ -885,12 +929,90 @@ func (b *Bot) handleDocument(ctx context.Context, message *tgbotapi.Message) {
 
 		fileID, err := b.saveUploadedFile(ctx, message)
 		if err != nil {
-			b.sendMessage(message.Chat.ID, "❌ Faylni saqlashda xatolik!")
+			b.sendMessage(message.Chat.ID, "❌ Faylni saqlashda xatolik: "+err.Error())
 			return
 		}
 
 		b.userStates.Delete(userID)
 		go b.processPDFToJPG(ctx, message.Chat.ID, userID, fileID, lang)
+		return
+	}
+
+	// 7. Check Protect State
+	if state, ok := b.userStates.Load(userID); ok && state == StateProtectUpload {
+		doc := message.Document
+		ext := strings.ToLower(filepath.Ext(doc.FileName))
+		if ext != ".pdf" {
+			b.sendMessage(message.Chat.ID, "❌ Faqat PDF fayl yuboring!")
+			return
+		}
+
+		fileID, err := b.saveUploadedFile(ctx, message)
+		if err != nil {
+			b.sendMessage(message.Chat.ID, "❌ Faylni saqlashda xatolik: "+err.Error())
+			return
+		}
+
+		b.splitContext.Store(userID, fileID)
+		b.userStates.Store(userID, StateProtectPassword)
+		b.sendMessage(message.Chat.ID, "🔒 PDF ga qo'yiladigan parolni kiriting:")
+		return
+	}
+
+	// 8. Check PDF to JPG State
+	if state, ok := b.userStates.Load(userID); ok && state == StateWordToPDFUpload {
+		doc := message.Document
+		ext := strings.ToLower(filepath.Ext(doc.FileName))
+		if ext != ".doc" && ext != ".docx" && ext != ".odt" && ext != ".rtf" {
+			b.sendMessage(message.Chat.ID, "❌ Faqat Word fayl (.doc, .docx) yuboring!")
+			return
+		}
+
+		// Proceed to process
+		b.userStates.Delete(userID)
+		b.processFile(ctx, message, "word", lang)
+		return
+	}
+
+	// 8. Check Excel to PDF State
+	if state, ok := b.userStates.Load(userID); ok && state == StateExcelToPDFUpload {
+		doc := message.Document
+		ext := strings.ToLower(filepath.Ext(doc.FileName))
+		if ext != ".xls" && ext != ".xlsx" {
+			b.sendMessage(message.Chat.ID, "❌ Faqat Excel fayl (.xls, .xlsx) yuboring!")
+			return
+		}
+
+		b.userStates.Delete(userID)
+		b.processFile(ctx, message, "excel", lang)
+		return
+	}
+
+	// 9. Check PPT to PDF State
+	if state, ok := b.userStates.Load(userID); ok && state == StatePowerPointToPDFUpload {
+		doc := message.Document
+		ext := strings.ToLower(filepath.Ext(doc.FileName))
+		if ext != ".ppt" && ext != ".pptx" {
+			b.sendMessage(message.Chat.ID, "❌ Faqat PowerPoint fayl (.ppt, .pptx) yuboring!")
+			return
+		}
+
+		b.userStates.Delete(userID)
+		b.processFile(ctx, message, "ppt", lang)
+		return
+	}
+
+	// 10. Check JPG to PDF State
+	if state, ok := b.userStates.Load(userID); ok && state == StateJPGToPDFUpload {
+		doc := message.Document
+		ext := strings.ToLower(filepath.Ext(doc.FileName))
+		if ext != ".jpg" && ext != ".jpeg" && ext != ".png" {
+			b.sendMessage(message.Chat.ID, "❌ Faqat Rasm fayl (.jpg, .png) yuboring!")
+			return
+		}
+
+		b.userStates.Delete(userID)
+		b.processFile(ctx, message, "image", lang)
 		return
 	}
 
@@ -1477,6 +1599,7 @@ func (b *Bot) finishMergeFlow(ctx context.Context, chatID, userID int64) {
 	}
 
 	b.sendMessage(chatID, "⏳ Birlashtirilmoqda...")
+	b.api.Send(tgbotapi.NewChatAction(chatID, tgbotapi.ChatUploadDocument))
 
 	// Create Job
 	job := models.MergeJob{
@@ -1488,7 +1611,7 @@ func (b *Bot) finishMergeFlow(ctx context.Context, chatID, userID int64) {
 	jobID, err := b.services.Merge().Create(ctx, job)
 	if err != nil {
 		b.log.Error("Failed to create merge job", logger.Error(err))
-		b.sendMessage(chatID, "Xatolik yuz berdi.")
+		b.sendMessage(chatID, "❌ Ish yaratishda xatolik: "+err.Error())
 		return
 	}
 
@@ -1782,6 +1905,7 @@ func (b *Bot) processRotate(ctx context.Context, chatID, userID int64, fileID st
 	}
 
 	b.sendMessage(chatID, "⏳ Aylantirilmoqda...")
+	b.api.Send(tgbotapi.NewChatAction(chatID, tgbotapi.ChatUploadDocument))
 
 	// Rotate service ni chaqirish
 	req := models.RotateRequest{
@@ -1847,6 +1971,7 @@ func (b *Bot) processWatermark(ctx context.Context, chatID, userID int64, fileID
 	}
 
 	b.sendMessage(chatID, "⏳ Suv belgisi qo'shilmoqda...")
+	b.api.Send(tgbotapi.NewChatAction(chatID, tgbotapi.ChatUploadDocument))
 
 	req := models.WatermarkRequest{
 		InputFileID: fileID,
@@ -1909,6 +2034,7 @@ func (b *Bot) processUnlock(ctx context.Context, chatID, userID int64, fileID, l
 	}
 
 	b.sendMessage(chatID, "⏳ Parol olib tashlanmoqda...")
+	b.api.Send(tgbotapi.NewChatAction(chatID, tgbotapi.ChatUploadDocument))
 
 	req := models.UnlockRequest{
 		InputFileID: fileID,
@@ -1966,13 +2092,13 @@ func (b *Bot) processPDFToJPG(ctx context.Context, chatID, userID int64, fileID,
 	}
 
 	b.sendMessage(chatID, "⏳ PDF rasmlarga aylantirilmoqda (bir oz vaqt olishi mumkin)...")
+	b.api.Send(tgbotapi.NewChatAction(chatID, tgbotapi.ChatUploadDocument))
 
 	uid := strconv.FormatInt(userID, 10)
 	req := models.PDFToJPGRequest{
 		InputFileID: fileID,
 		Quality:     75,
 	}
-
 	jobID, err := b.services.PDFToJPG().Create(ctx, req, &uid)
 	if err != nil {
 		b.log.Error("PDF to JPG failed", logger.Error(err))

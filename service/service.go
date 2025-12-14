@@ -21,6 +21,7 @@ type IServiceManager interface {
 	Watermark() WatermarkService
 	Unlock() UnlockService
 	PDFToJPG() PDFToJPGService
+	Protect() ProtectService
 }
 
 type serviceManager struct {
@@ -38,6 +39,7 @@ type serviceManager struct {
 	watermark       WatermarkService
 	unlock          UnlockService
 	pdfToJPG        PDFToJPGService
+	protect         ProtectService
 }
 
 func New(stg storage.IStorage, log logger.ILogger, gotClient gotenberg.Client) IServiceManager {
@@ -56,6 +58,7 @@ func New(stg storage.IStorage, log logger.ILogger, gotClient gotenberg.Client) I
 		watermark:       NewWatermarkService(stg, log),
 		unlock:          NewUnlockService(stg, log),
 		pdfToJPG:        NewPDFToJPGService(stg, log),
+		protect:         NewProtectService(stg, log),
 	}
 }
 
@@ -113,4 +116,8 @@ func (s *serviceManager) Unlock() UnlockService {
 
 func (s *serviceManager) PDFToJPG() PDFToJPGService {
 	return s.pdfToJPG
+}
+
+func (s *serviceManager) Protect() ProtectService {
+	return s.protect
 }

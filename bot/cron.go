@@ -38,8 +38,8 @@ func (c *CronService) Start() {
 
 	c.cron.AddFunc("0 * * * *", c.logStats)
 
-	// Daily Bonus: Every day at 00:00
-	c.cron.AddFunc("0 0 * * *", c.dailyBonus)
+	// Weekly Bonus: Every Monday at 00:00
+	c.cron.AddFunc("0 0 * * 1", c.weeklyBonus)
 
 	c.cron.Start()
 	c.log.Info("Cron service started")
@@ -126,11 +126,11 @@ func (c *CronService) CleanupNow(ctx context.Context) (int, error) {
 	return deletedCount, nil
 }
 
-func (c *CronService) dailyBonus() {
+func (c *CronService) weeklyBonus() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 
-	amount := 3 // Kunlik bonus: 3 coin
+	amount := 10 // Weekly bonus: 10 coins
 
 	// Avval barcha foydalanuvchilarni olish (notification yuborish uchun)
 	users, err := c.services.BotUser().GetAllUsers(ctx)
@@ -145,7 +145,7 @@ func (c *CronService) dailyBonus() {
 		return
 	}
 
-	c.log.Info("Daily bonus given", logger.Int("amount", amount), logger.Int("users_count", len(users)))
+	c.log.Info("Weekly bonus given", logger.Int("amount", amount), logger.Int("users_count", len(users)))
 
 	// Har bir foydalanuvchiga notification yuborish
 	if c.botAPI == nil {
@@ -185,7 +185,7 @@ func (c *CronService) dailyBonus() {
 		time.Sleep(50 * time.Millisecond)
 	}
 
-	c.log.Info("Daily bonus notifications sent",
+	c.log.Info("Weekly bonus notifications sent",
 		logger.Int("success", successCount),
 		logger.Int("failed", failCount),
 		logger.Int("total", len(users)))

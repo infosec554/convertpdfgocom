@@ -23,6 +23,7 @@ type IStorage interface {
 	Watermark() IWatermarkStorage
 	Unlock() IUnlockStorage
 	PDFToJPG() IPDFToJPGStorage // Yangi
+	Protect() IProtectStorage   // Protect PDF
 }
 
 type IMergeStorage interface {
@@ -127,3 +128,9 @@ type IPDFToJPGStorage interface {
 	Update(ctx context.Context, job *models.PDFToJPGJob) error
 }
 
+// IProtectStorage - Protect PDF job uchun storage interface
+type IProtectStorage interface {
+	Create(ctx context.Context, job *models.ProtectPDFJob) error
+	GetByID(ctx context.Context, id string) (*models.ProtectPDFJob, error)
+	Update(ctx context.Context, job *models.ProtectPDFJob) error
+}

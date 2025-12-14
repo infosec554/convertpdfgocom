@@ -13,7 +13,7 @@ GOTENBERG_SVC ?= gotenberg
 # PG sozlamalari (local profilda compose ichidagi xizmatlar)
 PGUSER        ?= postgres
 PGPASSWORD    ?= 1234
-PGDATABASE    ?= authservice
+PGDATABASE    ?= convertpdfgo
 PGHOST_LOCAL  ?= $(PG_SVC)
 PGPORT_LOCAL  ?= 5432
 # Prod (RDS) uchun tashqi ulanish (istalgan payt override qilasan)

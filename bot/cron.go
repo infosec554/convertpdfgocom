@@ -6,8 +6,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/robfig/cron/v3"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/robfig/cron/v3"
 
 	"convertpdfgo/pkg/logger"
 	"convertpdfgo/service"
@@ -28,7 +28,6 @@ func NewCronService(services service.IServiceManager, log logger.ILogger) *CronS
 	}
 }
 
-// SetBotAPI - Bot API ni o'rnatish (notification yuborish uchun)
 func (c *CronService) SetBotAPI(bot *tgbotapi.BotAPI) {
 	c.botAPI = bot
 }
@@ -38,7 +37,6 @@ func (c *CronService) Start() {
 
 	c.cron.AddFunc("0 * * * *", c.logStats)
 
-	// Weekly Bonus: Every Monday at 00:00
 	c.cron.AddFunc("0 0 * * 1", c.weeklyBonus)
 
 	c.cron.Start()
@@ -56,7 +54,7 @@ func (c *CronService) cleanupFiles() {
 
 	c.log.Info("Starting file cleanup job for files older than 5 minutes")
 
-	files, err := c.services.File().ListPendingDeletionFiles(ctx, 5) // 5 minutes
+	files, err := c.services.File().ListPendingDeletionFiles(ctx, 5)
 	if err != nil {
 		c.log.Error("failed to get old files", logger.Error(err))
 		return
@@ -130,16 +128,14 @@ func (c *CronService) weeklyBonus() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 
-	amount := 10 // Weekly bonus: 10 coins
+	amount := 10
 
-	// Avval barcha foydalanuvchilarni olish (notification yuborish uchun)
 	users, err := c.services.BotUser().GetAllUsers(ctx)
 	if err != nil {
 		c.log.Error("failed to get all users for daily bonus", logger.Error(err))
 		return
 	}
 
-	// Bonus berish
 	if err := c.services.BotUser().GiveDailyBonus(ctx, amount); err != nil {
 		c.log.Error("failed to give daily bonus", logger.Error(err))
 		return
@@ -147,7 +143,6 @@ func (c *CronService) weeklyBonus() {
 
 	c.log.Info("Weekly bonus given", logger.Int("amount", amount), logger.Int("users_count", len(users)))
 
-	// Har bir foydalanuvchiga notification yuborish
 	if c.botAPI == nil {
 		c.log.Warning("Bot API not set, skipping notifications")
 		return
@@ -157,16 +152,13 @@ func (c *CronService) weeklyBonus() {
 	failCount := 0
 
 	for _, user := range users {
-		// Foydalanuvchi tilini olish
 		lang := user.Language
 		if lang == "" {
 			lang = "uz"
 		}
 
-		// Yangi balansni hisoblash (eski balans + bonus)
 		newBalance := user.Coins + amount
 
-		// Xabar matni
 		text := fmt.Sprintf(T(lang, "daily_bonus"), amount, newBalance)
 
 		msg := tgbotapi.NewMessage(user.TelegramID, text)
@@ -174,14 +166,12 @@ func (c *CronService) weeklyBonus() {
 
 		_, err := c.botAPI.Send(msg)
 		if err != nil {
-			// Foydalanuvchi botni bloklagan bo'lishi mumkin - bu odatiy holat
 			failCount++
 			continue
 		}
 
 		successCount++
 
-		// Rate limiting - Telegram API cheklovlaridan qochish uchun
 		time.Sleep(50 * time.Millisecond)
 	}
 

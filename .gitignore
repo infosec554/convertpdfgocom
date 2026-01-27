@@ -1,4 +1,27 @@
+# Binaries
+main
+app
+convertpdfgo
+
+# Quick/Temp
+tmp/
+*.log
+.DS_Store
+
+# Data
+data/
+storage/
 storage/bot_uploads/
 storage/compress/
 storage/jpg_to_pdf/
 storage/pdf_to_jpg/
+
+# Environment
+.env
+.env.local
+.idea/
+.vscode/
+
+# Build
+dist/
+vendor/

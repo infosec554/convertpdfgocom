@@ -21,16 +21,16 @@ import (
 )
 
 const (
-	StateNone            = ""
-	StateAddCoinsUser    = "admin_add_coins_user"
-	StateAddCoinsAmount  = "admin_add_coins_amount"
-	StateMergeUpload     = "merge_upload_files"
-	StateSplitUpload     = "split_upload_file"   // Split: fayl kutish
-	StateSplitPages      = "split_enter_pages"   // Split: sahifalar kutish
-	StateRotateUpload    = "rotate_upload_file"  // Rotate: fayl kutish
-	StateWatermarkUpload = "watermark_upload"    // Watermark: fayl kutish
-	StateWatermarkText   = "watermark_enter_text" // Watermark: matn kutish
-	StateUnlockUpload    = "unlock_upload_file"   // Unlock: fayl kutish
+	StateNone                  = ""
+	StateAddCoinsUser          = "admin_add_coins_user"
+	StateAddCoinsAmount        = "admin_add_coins_amount"
+	StateMergeUpload           = "merge_upload_files"
+	StateSplitUpload           = "split_upload_file"
+	StateSplitPages            = "split_enter_pages"
+	StateRotateUpload          = "rotate_upload_file"
+	StateWatermarkUpload       = "watermark_upload"
+	StateWatermarkText         = "watermark_enter_text"
+	StateUnlockUpload          = "unlock_upload_file"
 	StatePDFToJPGUpload        = "pdf_to_jpg_upload"
 	StateWordToPDFUpload       = "word_to_pdf_upload"
 	StateExcelToPDFUpload      = "excel_to_pdf_upload"
@@ -46,14 +46,14 @@ type Bot struct {
 	log              logger.ILogger
 	adminUserID      int64
 	botUsername      string
-	requiredChannel  string   // Majburiy kanal
+	requiredChannel  string
 	processingUsers  sync.Map
 	userStates       sync.Map
 	adminContext     sync.Map
 	mergeContext     sync.Map
-	splitContext     sync.Map // Split: fayl ID saqlash
-	mediaGroupWarned sync.Map // Bir vaqtda ko'p fayl yuborishda ogohlantirish uchun
-	workerPool       chan struct{} // Concurrent ishlarni cheklash
+	splitContext     sync.Map
+	mediaGroupWarned sync.Map
+	workerPool       chan struct{}
 }
 
 func New(token string, services service.IServiceManager, log logger.ILogger, adminUserID string, requiredChannel string) (*Bot, error) {
@@ -74,11 +74,10 @@ func New(token string, services service.IServiceManager, log logger.ILogger, adm
 		adminUserID:     adminID,
 		botUsername:     api.Self.UserName,
 		requiredChannel: requiredChannel,
-		workerPool:      make(chan struct{}, 10), // 10 ta concurrent ish
+		workerPool:      make(chan struct{}, 10),
 	}, nil
 }
 
-// GetAPI - Bot API ni qaytarish (CronService uchun)
 func (b *Bot) GetAPI() *tgbotapi.BotAPI {
 	return b.api
 }
@@ -87,7 +86,6 @@ func (b *Bot) Start(ctx context.Context) {
 	b.log.Info("Bot started", logger.String("username", b.api.Self.UserName))
 	b.log.Info("Configured Admin ID", logger.Int64("admin_id", b.adminUserID))
 
-	// Bot commands ro'yxatini sozlash
 	commands := []tgbotapi.BotCommand{
 		{Command: "start", Description: "Menyuni ko'rsatish"},
 		{Command: "help", Description: "Yordam va rejimlar"},
@@ -105,15 +103,14 @@ func (b *Bot) Start(ctx context.Context) {
 		{Command: "ref", Description: "Referal havola"},
 		{Command: "lang", Description: "Tilni o'zgartirish"},
 	}
-	
+
 	cmdConfig := tgbotapi.NewSetMyCommands(commands...)
 	if _, err := b.api.Request(cmdConfig); err != nil {
 		b.log.Error("Failed to set bot commands", logger.Error(err))
 	} else {
 		b.log.Info("Bot commands set successfully")
 	}
-	
-	// Reset Menu Button (remove Web App button if exists)
+
 	b.resetMenuButton()
 
 	u := tgbotapi.NewUpdate(0)
@@ -145,13 +142,11 @@ func (b *Bot) getUserLang(ctx context.Context, userID int64) string {
 }
 
 func (b *Bot) handleUpdate(ctx context.Context, update tgbotapi.Update) {
-	// PreCheckoutQuery - to'lov oldidan tasdiqlash
 	if update.PreCheckoutQuery != nil {
 		b.handlePreCheckout(update.PreCheckoutQuery)
 		return
 	}
 
-	// Callback query (inline button)
 	if update.CallbackQuery != nil {
 		b.handleCallback(ctx, update.CallbackQuery)
 		return
@@ -161,19 +156,15 @@ func (b *Bot) handleUpdate(ctx context.Context, update tgbotapi.Update) {
 		return
 	}
 
-	// SuccessfulPayment - to'lov muvaffaqiyatli bo'lganda
 	if update.Message.SuccessfulPayment != nil {
 		b.handleSuccessfulPayment(ctx, update.Message)
 		return
 	}
 
-	// Media group (bir vaqtda ko'p fayl) tekshirish
 	if update.Message.MediaGroupID != "" {
 		lang := b.getUserLang(ctx, update.Message.From.ID)
-		// Faqat birinchi faylga javob berish (takroriy xabarlarni oldini olish)
 		if _, exists := b.mediaGroupWarned.LoadOrStore(update.Message.MediaGroupID, true); !exists {
 			b.sendMessage(update.Message.Chat.ID, T(lang, "only_one_file"))
-			// 30 soniyadan keyin xotirada tozalash
 			go func(groupID string) {
 				time.Sleep(30 * time.Second)
 				b.mediaGroupWarned.Delete(groupID)
@@ -182,7 +173,6 @@ func (b *Bot) handleUpdate(ctx context.Context, update tgbotapi.Update) {
 		return
 	}
 
-	// Foydalanuvchini ro'yxatdan o'tkazish
 	var refID *int64
 	if update.Message.IsCommand() && update.Message.Command() == "start" {
 		args := update.Message.CommandArguments()
@@ -194,7 +184,6 @@ func (b *Bot) handleUpdate(ctx context.Context, update tgbotapi.Update) {
 	}
 	b.ensureUser(ctx, update.Message.From, refID)
 
-	// Kanalga obuna bo'lishni tekshirish
 	isSubscribed, _ := b.checkSubscription(ctx, update.Message.From.ID)
 	if !isSubscribed {
 		lang := b.getUserLang(ctx, update.Message.From.ID)
@@ -202,14 +191,12 @@ func (b *Bot) handleUpdate(ctx context.Context, update tgbotapi.Update) {
 		return
 	}
 
-	// Yangi foydalanuvchi - til tanlash
 	user, _ := b.services.BotUser().GetUser(ctx, update.Message.From.ID)
 	if user != nil && user.Language == "" && update.Message.Command() == "start" {
 		b.sendLanguageSelection(update.Message.Chat.ID)
 		return
 	}
 
-	// Referal orqali kelgan
 	if refID != nil {
 		b.notifyReferral(ctx, update.Message.Chat.ID, update.Message.From, *refID)
 	}
@@ -224,20 +211,17 @@ func (b *Bot) handleUpdate(ctx context.Context, update tgbotapi.Update) {
 		return
 	}
 
-	// Photo (rasm) qabul qilish
 	if update.Message.Photo != nil && len(update.Message.Photo) > 0 {
 		b.handlePhoto(ctx, update.Message)
 		return
 	}
 
-	// Text message handling (Menu clicks)
 	if update.Message.Text != "" {
 		lang := b.getUserLang(ctx, update.Message.From.ID)
-		// 1. Check Admin Commands (Prioritize over states)
 		if update.Message.From.ID == b.adminUserID {
 			switch update.Message.Text {
 			case "👨‍⚖️ Admin Panel":
-				b.userStates.Delete(update.Message.From.ID) // Clear state
+				b.userStates.Delete(update.Message.From.ID)
 				b.sendAdminPanel(update.Message.Chat.ID)
 				return
 			case "📊 Global Stats":
@@ -254,7 +238,6 @@ func (b *Bot) handleUpdate(ctx context.Context, update tgbotapi.Update) {
 				b.sendBackupExcel(ctx, update.Message.Chat.ID)
 				return
 			case "↩️ User Mode":
-				// Clear any active states
 				b.userStates.Delete(update.Message.From.ID)
 				b.mergeContext.Delete(update.Message.From.ID)
 				b.splitContext.Delete(update.Message.From.ID)
@@ -268,71 +251,58 @@ func (b *Bot) handleUpdate(ctx context.Context, update tgbotapi.Update) {
 			}
 		}
 
-		// 2. Check Admin States
 		if state, ok := b.userStates.Load(update.Message.From.ID); ok && state != StateNone {
-			// Double check if user is admin (security)
 			if update.Message.From.ID == b.adminUserID {
 				b.handleAdminStates(ctx, &update, state.(string))
 				return
 			}
 		}
 
-		// 4. Merge Handling (Text click)
 		if key := GetKey(lang, update.Message.Text); key == "merge_pdf" {
 			b.startMergeFlow(ctx, update.Message.Chat.ID, update.Message.From.ID)
 			return
 		}
 
-		// 4.1 Split Handling (Text click)
 		if key := GetKey(lang, update.Message.Text); key == "split_pdf" {
 			b.startSplitFlow(ctx, update.Message.Chat.ID, update.Message.From.ID)
 			return
 		}
 
-		// 4.2 Rotate PDF Handling
 		if key := GetKey(lang, update.Message.Text); key == "rotate_pdf" {
 			b.startRotateFlow(ctx, update.Message.Chat.ID, update.Message.From.ID)
 			return
 		}
 
-		// 4.3 Watermark Handling
 		if key := GetKey(lang, update.Message.Text); key == "watermark" {
 			b.startWatermarkFlow(ctx, update.Message.Chat.ID, update.Message.From.ID)
 			return
 		}
 
-		// 4.4 Unlock PDF Handling
 		if key := GetKey(lang, update.Message.Text); key == "unlock_pdf" {
 			b.startUnlockFlow(ctx, update.Message.Chat.ID, update.Message.From.ID)
 			return
 		}
 
-		// 4.5 PDF to JPG Handling
 		if key := GetKey(lang, update.Message.Text); key == "pdf_to_jpg" {
 			b.startPDFToJPGFlow(ctx, update.Message.Chat.ID, update.Message.From.ID)
 			return
 		}
 
-		// 4.6 Protect PDF Handling
 		if update.Message.Text == "🔒 Protect PDF" {
 			b.startProtectFlow(ctx, update.Message.Chat.ID, update.Message.From.ID)
 			return
 		}
 
-		// 5. Done command for merge
 		if update.Message.Text == "Done" || update.Message.Text == "/done" {
 			if state, ok := b.userStates.Load(update.Message.From.ID); ok && state == StateMergeUpload {
 				b.finishMergeFlow(ctx, update.Message.Chat.ID, update.Message.From.ID)
 				return
 			}
-			// Agar merge state bo'lmasa, oddiy xabar
 			b.sendMessage(update.Message.Chat.ID, "ℹ️ Hozirda birlashtirish jarayoni yo'q. Avval \"Merge PDF\" ni tanlang.")
 			return
 		}
 
-		// 5.2 Cancel button for regular users
 		if key := GetKey(lang, update.Message.Text); key == "cancel" {
-			// Clear all states
 			b.userStates.Delete(update.Message.From.ID)
 			b.mergeContext.Delete(update.Message.From.ID)
 			b.splitContext.Delete(update.Message.From.ID)
@@ -341,13 +311,11 @@ func (b *Bot) handleUpdate(ctx context.Context, update tgbotapi.Update) {
 			return
 		}
 
-		// 5.1 Split pages state - sahifalar kiritilganda
 		if state, ok := b.userStates.Load(update.Message.From.ID); ok && state == StateSplitPages {
 			b.finishSplitFlow(ctx, update.Message.Chat.ID, update.Message.From.ID, update.Message.Text)
 			return
 		}
 
-		// 5.3 Watermark text state
 		if state, ok := b.userStates.Load(update.Message.From.ID); ok && state == StateWatermarkText {
 			if fid, ok := b.splitContext.Load(update.Message.From.ID); ok {
 				go b.processWatermark(ctx, update.Message.Chat.ID, update.Message.From.ID, fid.(string), update.Message.Text, lang)
@@ -357,7 +325,6 @@ func (b *Bot) handleUpdate(ctx context.Context, update tgbotapi.Update) {
 			}
 		}
 
-		// 5.4 Protect Password State
 		if state, ok := b.userStates.Load(update.Message.From.ID); ok && state == StateProtectPassword {
 			if fid, ok := b.splitContext.Load(update.Message.From.ID); ok {
 				go b.processProtect(ctx, update.Message.Chat.ID, update.Message.From.ID, fid.(string), update.Message.Text, lang)
@@ -367,7 +334,6 @@ func (b *Bot) handleUpdate(ctx context.Context, update tgbotapi.Update) {
 			}
 		}
 
-		// 6. Normal Menu Handling
 		if key := GetKey(lang, update.Message.Text); key != "" {
 			switch key {
 			case "compress_pdf":
@@ -407,7 +373,6 @@ func (b *Bot) handleUpdate(ctx context.Context, update tgbotapi.Update) {
 			return
 		}
 
-		// Handle "Menu" button specifically if it's not in i18n or just text match
 		if update.Message.Text == "🏠 Menu" || update.Message.Text == "🏠 Asosiy menu" {
 			b.sendMainMenu(update.Message.Chat.ID, lang)
 			return
@@ -418,14 +383,11 @@ func (b *Bot) handleUpdate(ctx context.Context, update tgbotapi.Update) {
 	b.sendMainMenu(update.Message.Chat.ID, lang)
 }
 
-// ==================== CALLBACK (INLINE BUTTONS) ====================
-
 func (b *Bot) handleCallback(ctx context.Context, callback *tgbotapi.CallbackQuery) {
 	data := callback.Data
 	chatID := callback.Message.Chat.ID
 	userID := callback.From.ID
 
-	// Obunani tekshirish tugmasi
 	if data == "check_sub" {
 		lang := b.getUserLang(ctx, userID)
 		isSubscribed, status := b.checkSubscription(ctx, userID)
@@ -434,14 +396,12 @@ func (b *Bot) handleCallback(ctx context.Context, callback *tgbotapi.CallbackQue
 			b.sendMessage(chatID, T(lang, "sub_success"))
 			b.sendMainMenu(chatID, lang)
 		} else {
-			// Reasonni ko'rsatish
 			msg := fmt.Sprintf("%s (%s)", T(lang, "sub_not_found"), status)
 			b.api.Request(tgbotapi.NewCallback(callback.ID, msg))
 		}
 		return
 	}
 
-	// Til tanlashdan boshqa holatlarda obuna kerak
 	if !strings.HasPrefix(data, "lang_") {
 		isSubscribed, _ := b.checkSubscription(ctx, userID)
 		if !isSubscribed {
@@ -452,22 +412,18 @@ func (b *Bot) handleCallback(ctx context.Context, callback *tgbotapi.CallbackQue
 		}
 	}
 
-	// Callback javobini yuborish (muvaffaqiyatli bo'lsa)
 	b.api.Request(tgbotapi.NewCallback(callback.ID, ""))
 
-	// Til tanlash
 	if strings.HasPrefix(data, "lang_") {
 		lang := strings.TrimPrefix(data, "lang_")
 		b.services.BotUser().SetLanguage(ctx, userID, lang)
-		
-		// Xabarni o'chirish va yangi menu yuborish
+
 		b.api.Request(tgbotapi.NewDeleteMessage(chatID, callback.Message.MessageID))
 		b.sendMessage(chatID, T(lang, "lang_selected"))
 		b.sendMainMenu(chatID, lang)
 		return
 	}
 
-	// Rotate callback: rotate:fileID:angle
 	if strings.HasPrefix(data, "rotate:") {
 		parts := strings.Split(data, ":")
 		if len(parts) == 3 {
@@ -481,7 +437,6 @@ func (b *Bot) handleCallback(ctx context.Context, callback *tgbotapi.CallbackQue
 
 	lang := b.getUserLang(ctx, userID)
 
-	// Menu actions
 	switch data {
 	case "menu_compress":
 		b.services.BotUser().SetCurrentAction(ctx, userID, "compress")
@@ -537,10 +492,7 @@ func (b *Bot) handleCallback(ctx context.Context, callback *tgbotapi.CallbackQue
 	}
 }
 
-// ==================== LANGUAGE SELECTION ====================
-
 func (b *Bot) sendLanguageSelection(chatID int64) {
-	// 20 ta til uchun keyboard
 	keyboard := tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("🇺🇿 O'zbekcha", "lang_uz"),
@@ -584,15 +536,11 @@ func (b *Bot) sendLanguageSelection(chatID int64) {
 	b.api.Send(msg)
 }
 
-// ==================== MAIN MENU ====================
-
 func (b *Bot) sendMainMenu(chatID int64, lang string) {
-	// If Admin, show Admin Panel
 	if chatID == b.adminUserID {
 		b.sendAdminPanel(chatID)
 		return
 	}
-	// Otherwise show User Menu
 	b.sendUserMenu(chatID, lang)
 }
 
@@ -616,7 +564,7 @@ func (b *Bot) sendUserMenu(chatID int64, lang string) {
 		),
 		tgbotapi.NewKeyboardButtonRow(
 			tgbotapi.NewKeyboardButton(T(lang, "watermark")),
-			tgbotapi.NewKeyboardButton(T(lang, "watermark")),
+
 			tgbotapi.NewKeyboardButton(T(lang, "unlock_pdf")),
 		),
 		tgbotapi.NewKeyboardButtonRow(
@@ -641,8 +589,6 @@ func (b *Bot) sendUserMenu(chatID int64, lang string) {
 	b.api.Send(msg)
 }
 
-// ==================== COMMANDS ====================
-
 func (b *Bot) handleCommand(ctx context.Context, message *tgbotapi.Message) {
 	lang := b.getUserLang(ctx, message.From.ID)
 	cmd := message.Command()
@@ -663,7 +609,6 @@ func (b *Bot) handleCommand(ctx context.Context, message *tgbotapi.Message) {
 	case "partnership":
 		b.sendPartnershipInfo(message.Chat.ID, lang)
 
-	// PDF amallar
 	case "compress":
 		b.services.BotUser().SetCurrentAction(ctx, message.From.ID, "compress")
 		b.sendMessage(message.Chat.ID, T(lang, "select_file"))
@@ -688,7 +633,6 @@ func (b *Bot) handleCommand(ctx context.Context, message *tgbotapi.Message) {
 		b.services.BotUser().SetCurrentAction(ctx, message.From.ID, "image")
 		b.sendMessage(message.Chat.ID, T(lang, "select_file"))
 
-	// Admin commands - faqat admin uchun
 	case "stats", "cleanup", "addcoins", "top":
 		if b.isAdmin(message.From.ID) {
 			switch cmd {
@@ -737,8 +681,6 @@ func (b *Bot) sendHelp(chatID int64, lang string, isAdmin bool) {
 	b.api.Send(msg)
 }
 
-// ==================== COINS & REFERRAL ====================
-
 func (b *Bot) showUserCoins(ctx context.Context, chatID, userID int64, lang string) {
 	user, refCount, _ := b.services.BotUser().GetUserStats(ctx, userID)
 	if user == nil {
@@ -777,8 +719,6 @@ func (b *Bot) notifyReferral(ctx context.Context, chatID int64, newUser *tgbotap
 	b.sendMessage(referrerID, fmt.Sprintf(T(refLang, "ref_notify"), newUser.FirstName))
 }
 
-// ==================== FILE HANDLING ====================
-
 func (b *Bot) handleDocument(ctx context.Context, message *tgbotapi.Message) {
 	lang := b.getUserLang(ctx, message.From.ID)
 	userID := message.From.ID
@@ -789,13 +729,11 @@ func (b *Bot) handleDocument(ctx context.Context, message *tgbotapi.Message) {
 	}
 	defer b.processingUsers.Delete(userID)
 
-	// File Size Check (e.g. 50MB)
 	if message.Document != nil && message.Document.FileSize > 50*1024*1024 {
 		b.sendMessage(message.Chat.ID, "❌ Fayl hajmi juda katta! Maksimal 50MB.")
 		return
 	}
 
-	// Coin tekshirish
 	canUse, coins, isPremium, _ := b.services.BotUser().CanUseService(ctx, userID)
 	if !canUse {
 		refLink := fmt.Sprintf("https://t.me/%s?start=ref%d", b.botUsername, userID)
@@ -803,19 +741,16 @@ func (b *Bot) handleDocument(ctx context.Context, message *tgbotapi.Message) {
 		return
 	}
 
-	// Premium bo'lmasa va coin kam bo'lsa ogohlantirish
 	if !isPremium && coins <= 5 && coins > 0 {
 		b.sendMessage(message.Chat.ID, fmt.Sprintf(T(lang, "coins_left"), coins))
 	}
 
-	// Foydalanuvchi actionini olish
 	user, _ := b.services.BotUser().GetUser(ctx, userID)
 	action := ""
 	if user != nil {
 		action = user.CurrentAction
 	}
 
-	// 1. Check Merge State
 	if state, ok := b.userStates.Load(userID); ok && state == StateMergeUpload {
 		fileID, err := b.saveUploadedFile(ctx, message)
 		if err != nil {
@@ -834,7 +769,6 @@ func (b *Bot) handleDocument(ctx context.Context, message *tgbotapi.Message) {
 		return
 	}
 
-	// 2. Check Split State - fayl kutilayotgan bo'lsa
 	if state, ok := b.userStates.Load(userID); ok && state == StateSplitUpload {
 		doc := message.Document
 		ext := strings.ToLower(filepath.Ext(doc.FileName))
@@ -845,7 +779,11 @@ func (b *Bot) handleDocument(ctx context.Context, message *tgbotapi.Message) {
 
 		fileID, err := b.saveUploadedFile(ctx, message)
 		if err != nil {
-			b.sendMessage(message.Chat.ID, "❌ Faylni saqlashda xatolik: "+err.Error())
+			if strings.Contains(err.Error(), "file is too big") || strings.Contains(err.Error(), "limit 20MB") {
+				b.sendMessage(message.Chat.ID, "❌ Fayl hajmi juda katta (Max: 20MB). Telegram Bot API cheklovi.")
+			} else {
+				b.sendMessage(message.Chat.ID, "❌ Faylni saqlashda xatolik: "+err.Error())
+			}
 			return
 		}
 
@@ -855,7 +793,6 @@ func (b *Bot) handleDocument(ctx context.Context, message *tgbotapi.Message) {
 		return
 	}
 
-	// 3. Check Rotate State - fayl kutilayotgan bo'lsa
 	if state, ok := b.userStates.Load(userID); ok && state == StateRotateUpload {
 		doc := message.Document
 		ext := strings.ToLower(filepath.Ext(doc.FileName))
@@ -870,13 +807,11 @@ func (b *Bot) handleDocument(ctx context.Context, message *tgbotapi.Message) {
 			return
 		}
 
-		// Burchakni tanlash uchun inline keyboard
 		b.sendRotateAngleSelection(message.Chat.ID, fileID, lang)
 		b.userStates.Delete(userID)
 		return
 	}
 
-	// 4. Check Watermark State - fayl kutilayotgan bo'lsa
 	if state, ok := b.userStates.Load(userID); ok && state == StateWatermarkUpload {
 		doc := message.Document
 		ext := strings.ToLower(filepath.Ext(doc.FileName))
@@ -891,14 +826,12 @@ func (b *Bot) handleDocument(ctx context.Context, message *tgbotapi.Message) {
 			return
 		}
 
-		// Matn so'rash
-		b.splitContext.Store(userID, fileID) // fileID ni saqlash
+		b.splitContext.Store(userID, fileID)
 		b.userStates.Store(userID, StateWatermarkText)
 		b.sendMessage(message.Chat.ID, "💧 Suv belgisi uchun matn kiriting (masalan: CONFIDENTIAL):")
 		return
 	}
 
-	// 5. Check Unlock State
 	if state, ok := b.userStates.Load(userID); ok && state == StateUnlockUpload {
 		doc := message.Document
 		ext := strings.ToLower(filepath.Ext(doc.FileName))
@@ -918,7 +851,6 @@ func (b *Bot) handleDocument(ctx context.Context, message *tgbotapi.Message) {
 		return
 	}
 
-	// 6. Check PDF to JPG State
 	if state, ok := b.userStates.Load(userID); ok && state == StatePDFToJPGUpload {
 		doc := message.Document
 		ext := strings.ToLower(filepath.Ext(doc.FileName))
@@ -938,7 +870,6 @@ func (b *Bot) handleDocument(ctx context.Context, message *tgbotapi.Message) {
 		return
 	}
 
-	// 7. Check Protect State
 	if state, ok := b.userStates.Load(userID); ok && state == StateProtectUpload {
 		doc := message.Document
 		ext := strings.ToLower(filepath.Ext(doc.FileName))
@@ -959,7 +890,6 @@ func (b *Bot) handleDocument(ctx context.Context, message *tgbotapi.Message) {
 		return
 	}
 
-	// 8. Check PDF to JPG State
 	if state, ok := b.userStates.Load(userID); ok && state == StateWordToPDFUpload {
 		doc := message.Document
 		ext := strings.ToLower(filepath.Ext(doc.FileName))
@@ -968,13 +898,11 @@ func (b *Bot) handleDocument(ctx context.Context, message *tgbotapi.Message) {
 			return
 		}
 
-		// Proceed to process
 		b.userStates.Delete(userID)
 		b.processFile(ctx, message, "word", lang)
 		return
 	}
 
-	// 8. Check Excel to PDF State
 	if state, ok := b.userStates.Load(userID); ok && state == StateExcelToPDFUpload {
 		doc := message.Document
 		ext := strings.ToLower(filepath.Ext(doc.FileName))
@@ -988,7 +916,6 @@ func (b *Bot) handleDocument(ctx context.Context, message *tgbotapi.Message) {
 		return
 	}
 
-	// 9. Check PPT to PDF State
 	if state, ok := b.userStates.Load(userID); ok && state == StatePowerPointToPDFUpload {
 		doc := message.Document
 		ext := strings.ToLower(filepath.Ext(doc.FileName))
@@ -1002,7 +929,6 @@ func (b *Bot) handleDocument(ctx context.Context, message *tgbotapi.Message) {
 		return
 	}
 
-	// 10. Check JPG to PDF State
 	if state, ok := b.userStates.Load(userID); ok && state == StateJPGToPDFUpload {
 		doc := message.Document
 		ext := strings.ToLower(filepath.Ext(doc.FileName))
@@ -1016,7 +942,6 @@ func (b *Bot) handleDocument(ctx context.Context, message *tgbotapi.Message) {
 		return
 	}
 
-	// Agar action tanlanmagan bo'lsa - avtomatik aniqlash (Default flow)
 	doc := message.Document
 	ext := strings.ToLower(filepath.Ext(doc.FileName))
 
@@ -1040,10 +965,8 @@ func (b *Bot) handleDocument(ctx context.Context, message *tgbotapi.Message) {
 
 	b.sendMessage(message.Chat.ID, T(lang, "file_received"))
 
-	// Process file
 	b.processFile(ctx, message, action, lang)
 
-	// Reset action
 	b.services.BotUser().SetCurrentAction(ctx, userID, "")
 }
 
@@ -1056,10 +979,8 @@ func (b *Bot) processFile(ctx context.Context, message *tgbotapi.Message, action
 	}
 
 	b.log.Info("File saved", logger.String("fileID", fileID), logger.String("action", action))
-	
-	// Show "uploading file..." status
-	b.api.Send(tgbotapi.NewChatAction(message.Chat.ID, tgbotapi.ChatUploadDocument))
 
+	b.api.Send(tgbotapi.NewChatAction(message.Chat.ID, tgbotapi.ChatUploadDocument))
 
 	var outputFileID *string
 
@@ -1137,16 +1058,12 @@ func (b *Bot) sendResult(chatID, userID int64, outputFileID *string, lang string
 		return
 	}
 
-	// Check payment
 	isAdmin := userID == b.adminUserID
 	if isAdmin {
-		// Admin: Bypass payment but INCREMENT usage stats
 		b.services.BotUser().IncrementUsage(context.Background(), userID)
 	} else {
-		// User: Must pay
 		err := b.services.BotUser().UseService(context.Background(), userID)
 		if err != nil {
-			// Failed (likely no coins)
 			if err.Error() == "insufficient funds" {
 				b.sendNoCoinsMessage(chatID, lang, fmt.Sprintf("https://t.me/%s?start=%d", b.api.Self.UserName, userID))
 			} else {
@@ -1166,7 +1083,6 @@ func (b *Bot) sendResult(chatID, userID int64, outputFileID *string, lang string
 	sizeKB := float64(fi.Size()) / 1024
 	caption := fmt.Sprintf("%s\n"+T(lang, "file_size"), T(lang, "success"), sizeKB)
 
-	// Add Back to Menu button
 	keyboard := tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData(T(lang, "back_to_menu"), "menu_back"),
@@ -1178,8 +1094,6 @@ func (b *Bot) sendResult(chatID, userID int64, outputFileID *string, lang string
 	doc.ReplyMarkup = keyboard
 	b.api.Send(doc)
 }
-
-// ==================== ADMIN ====================
 
 func (b *Bot) handleAdminStats(ctx context.Context, message *tgbotapi.Message, lang string) {
 	if !b.isAdmin(message.From.ID) {
@@ -1274,14 +1188,11 @@ func (b *Bot) handleAdminTop(ctx context.Context, message *tgbotapi.Message, lan
 	b.api.Send(msg)
 }
 
-// ==================== HELPERS ====================
-
 func (b *Bot) ensureUser(ctx context.Context, user *tgbotapi.User, refID *int64) {
 	username := user.UserName
 	b.services.BotUser().EnsureUser(ctx, user.ID, username, user.FirstName, refID)
 }
 
-// handlePhoto - Photo (rasm) ni PDF ga aylantirish
 func (b *Bot) handlePhoto(ctx context.Context, message *tgbotapi.Message) {
 	lang := b.getUserLang(ctx, message.From.ID)
 	userID := message.From.ID
@@ -1292,7 +1203,6 @@ func (b *Bot) handlePhoto(ctx context.Context, message *tgbotapi.Message) {
 	}
 	defer b.processingUsers.Delete(userID)
 
-	// Coin tekshirish
 	canUse, coins, isPremium, _ := b.services.BotUser().CanUseService(ctx, userID)
 	if !canUse {
 		refLink := fmt.Sprintf("https://t.me/%s?start=ref%d", b.botUsername, userID)
@@ -1305,11 +1215,9 @@ func (b *Bot) handlePhoto(ctx context.Context, message *tgbotapi.Message) {
 
 	b.sendMessage(message.Chat.ID, T(lang, "file_received"))
 
-	// Eng katta rasmni tanlash
 	photos := message.Photo
 	photo := photos[len(photos)-1]
 
-	// Rasmni yuklab olish va saqlash
 	fileID, err := b.savePhoto(ctx, photo.FileID, message.From.ID)
 	if err != nil {
 		b.log.Error("savePhoto failed", logger.Error(err))
@@ -1319,7 +1227,6 @@ func (b *Bot) handlePhoto(ctx context.Context, message *tgbotapi.Message) {
 
 	b.log.Info("Photo saved", logger.String("fileID", fileID))
 
-	// PDF ga aylantirish
 	jobID, err := b.services.JPGToPDF().CreateJob(ctx, nil, []string{fileID})
 	if err != nil {
 		b.log.Error("JPGToPDF failed", logger.Error(err))
@@ -1386,6 +1293,9 @@ func (b *Bot) saveUploadedFile(ctx context.Context, message *tgbotapi.Message) (
 func (b *Bot) downloadFile(fileID, fileName string) (string, error) {
 	file, err := b.api.GetFile(tgbotapi.FileConfig{FileID: fileID})
 	if err != nil {
+		if strings.Contains(err.Error(), "file is too big") {
+			return "", fmt.Errorf("file is too big (limit 20MB)")
+		}
 		return "", err
 	}
 
@@ -1422,8 +1332,6 @@ func min(a, b int) int {
 	return b
 }
 
-// isAdmin already declared above
-
 func (b *Bot) sendAdminPanel(chatID int64) {
 	keyboard := tgbotapi.NewReplyKeyboard(
 		tgbotapi.NewKeyboardButtonRow(
@@ -1444,10 +1352,6 @@ func (b *Bot) sendAdminPanel(chatID int64) {
 	msg.ReplyMarkup = keyboard
 	b.api.Send(msg)
 }
-
-
-
-
 
 func (b *Bot) sendNoCoinsMessage(chatID int64, lang string, refLink string) {
 	text := T(lang, "no_coins") + "\n\n📎 *Referal:* " + refLink
@@ -1470,7 +1374,6 @@ func (b *Bot) sendNoCoinsMessage(chatID int64, lang string, refLink string) {
 	b.api.Send(msg)
 }
 
-// sendPartnershipInfo - Hamkorlik uchun ma'lumot yuborish
 func (b *Bot) sendPartnershipInfo(chatID int64, lang string) {
 	text := T(lang, "partnership_msg")
 
@@ -1554,17 +1457,16 @@ func (b *Bot) handleAdminStates(ctx context.Context, update *tgbotapi.Update, st
 
 		b.userStates.Delete(userID)
 		b.adminContext.Delete(userID)
-	b.sendAdminPanel(update.Message.Chat.ID)
+		b.sendAdminPanel(update.Message.Chat.ID)
 	}
 }
 
 func (b *Bot) startMergeFlow(ctx context.Context, chatID, userID int64) {
 	b.userStates.Store(userID, StateMergeUpload)
-	b.mergeContext.Delete(userID) // Clear previous files
+	b.mergeContext.Delete(userID)
 
 	lang := b.getUserLang(ctx, userID)
-	
-	// Admin uchun "User Mode", oddiy user uchun "Bekor qilish"
+
 	cancelBtnText := "❌ Bekor qilish"
 	if userID == b.adminUserID {
 		cancelBtnText = "↩️ User Mode"
@@ -1601,7 +1503,6 @@ func (b *Bot) finishMergeFlow(ctx context.Context, chatID, userID int64) {
 	b.sendMessage(chatID, "⏳ Birlashtirilmoqda...")
 	b.api.Send(tgbotapi.NewChatAction(chatID, tgbotapi.ChatUploadDocument))
 
-	// Create Job
 	job := models.MergeJob{
 		UserID:       userID,
 		InputFileIDs: fileIDs,
@@ -1615,17 +1516,13 @@ func (b *Bot) finishMergeFlow(ctx context.Context, chatID, userID int64) {
 		return
 	}
 
-	// ⬇️ CONCURRENCY LIMIT START
 	select {
 	case b.workerPool <- struct{}{}:
-		// Slot band qilindi
-		defer func() { <-b.workerPool }() // Ish tugagach slotni bo'shatish
+		defer func() { <-b.workerPool }() 
 	default:
-		// Slot yo'q = server band
 		b.sendMessage(chatID, "⚠️ Server ayni damda band. Iltimos 1 daqiqadan so'ng urinib ko'ring.")
 		return
 	}
-	// ⬆️ CONCURRENCY LIMIT END
 
 	resultFile, err := b.services.Merge().MergeFiles(ctx, jobID)
 	if err != nil {
@@ -1634,23 +1531,20 @@ func (b *Bot) finishMergeFlow(ctx context.Context, chatID, userID int64) {
 		return
 	}
 
-	// Send Result
 	lang := b.getUserLang(ctx, userID)
 	b.sendResult(chatID, userID, &resultFile.ID, lang)
-	
-	// Clean up
+
 	b.userStates.Delete(userID)
 	b.mergeContext.Delete(userID)
 	b.sendMainMenu(chatID, lang)
 }
 
-// ==================== SPLIT PDF ====================
 
 func (b *Bot) startSplitFlow(ctx context.Context, chatID, userID int64) {
 	lang := b.getUserLang(ctx, userID)
 
 	b.userStates.Store(userID, StateSplitUpload)
-	b.splitContext.Delete(userID) // Clear previous
+	b.splitContext.Delete(userID) 
 
 	keyboard := tgbotapi.NewReplyKeyboard(
 		tgbotapi.NewKeyboardButtonRow(
@@ -1667,7 +1561,6 @@ func (b *Bot) startSplitFlow(ctx context.Context, chatID, userID int64) {
 func (b *Bot) finishSplitFlow(ctx context.Context, chatID, userID int64, pagesInput string) {
 	lang := b.getUserLang(ctx, userID)
 
-	// Bekor qilish
 	if pagesInput == "↩️ "+T(lang, "back_to_menu") || pagesInput == "/cancel" {
 		b.userStates.Delete(userID)
 		b.splitContext.Delete(userID)
@@ -1675,7 +1568,6 @@ func (b *Bot) finishSplitFlow(ctx context.Context, chatID, userID int64, pagesIn
 		return
 	}
 
-	// Fayl ID ni olish
 	fileIDInterface, ok := b.splitContext.Load(userID)
 	if !ok {
 		b.sendMessage(chatID, "❌ Avval PDF fayl yuboring!")
@@ -1684,13 +1576,11 @@ func (b *Bot) finishSplitFlow(ctx context.Context, chatID, userID int64, pagesIn
 	}
 	fileID := fileIDInterface.(string)
 
-	// Split service ni chaqirish
 	req := models.CreateSplitJobRequest{
 		InputFileID: fileID,
 		SplitRanges: pagesInput,
 	}
 
-	// ⬇️ CONCURRENCY LIMIT START
 	select {
 	case b.workerPool <- struct{}{}:
 		defer func() { <-b.workerPool }()
@@ -1698,7 +1588,6 @@ func (b *Bot) finishSplitFlow(ctx context.Context, chatID, userID int64, pagesIn
 		b.sendMessage(chatID, "⚠️ Server band. Qayta urinib ko'ring.")
 		return
 	}
-	// ⬆️ CONCURRENCY LIMIT END
 
 	jobID, err := b.services.Split().Create(ctx, req, nil)
 
@@ -1711,7 +1600,6 @@ func (b *Bot) finishSplitFlow(ctx context.Context, chatID, userID int64, pagesIn
 		return
 	}
 
-	// Natijalarni olish
 	job, err := b.services.Split().GetByID(ctx, jobID)
 	if err != nil || job == nil || len(job.OutputFileIDs) == 0 {
 		b.sendMessage(chatID, "❌ Natija topilmadi")
@@ -1721,23 +1609,19 @@ func (b *Bot) finishSplitFlow(ctx context.Context, chatID, userID int64, pagesIn
 		return
 	}
 
-	// Coin ayirish
 	b.services.BotUser().UseService(ctx, userID)
 
-	// Har bir fayl uchun yuborish
 	for _, outFileID := range job.OutputFileIDs {
 		b.sendResult(chatID, userID, &outFileID, lang)
 	}
 
 	b.sendMessage(chatID, fmt.Sprintf(T(lang, "split_success"), len(job.OutputFileIDs)))
 
-	// Clean up
 	b.userStates.Delete(userID)
 	b.splitContext.Delete(userID)
 	b.sendMainMenu(chatID, lang)
 }
 
-// ==================== BUY COINS / STARS PAYMENT ====================
 
 func (b *Bot) sendBuyCoinsMenu(chatID int64, lang string) {
 	text := "💰 *Coin Sotib Olish*\n\n" +
@@ -1769,7 +1653,7 @@ func (b *Bot) sendStarsInvoice(chatID, userID int64, lang string, stars, coins i
 		Title:       title,
 		Description: description,
 		Payload:     payload,
-		Currency:    "XTR", // Telegram Stars
+		Currency:    "XTR", 
 		Prices: []tgbotapi.LabeledPrice{
 			{
 				Label:  title,
@@ -1785,28 +1669,23 @@ func (b *Bot) sendStarsInvoice(chatID, userID int64, lang string, stars, coins i
 	}
 }
 
-// ==================== PAYMENT HANDLERS ====================
 
-// handlePreCheckout - to'lovni tasdiqlash
 func (b *Bot) handlePreCheckout(query *tgbotapi.PreCheckoutQuery) {
-	// Barcha to'lovlarni tasdiqlash
 	callback := tgbotapi.PreCheckoutConfig{
 		PreCheckoutQueryID: query.ID,
 		OK:                 true,
 	}
 	b.api.Request(callback)
-	b.log.Info("PreCheckout approved", 
+	b.log.Info("PreCheckout approved",
 		logger.Int64("user_id", query.From.ID),
 		logger.String("payload", query.InvoicePayload))
 }
 
-// handleSuccessfulPayment - muvaffaqiyatli to'lovni qayta ishlash
 func (b *Bot) handleSuccessfulPayment(ctx context.Context, message *tgbotapi.Message) {
 	payment := message.SuccessfulPayment
 	userID := message.From.ID
 	lang := b.getUserLang(ctx, userID)
 
-	// Payload ni parse qilish: "coins:userID:amount"
 	parts := strings.Split(payment.InvoicePayload, ":")
 	if len(parts) < 3 {
 		b.log.Error("Invalid payment payload", logger.String("payload", payment.InvoicePayload))
@@ -1819,7 +1698,6 @@ func (b *Bot) handleSuccessfulPayment(ctx context.Context, message *tgbotapi.Mes
 		return
 	}
 
-	// Coinlarni qo'shish
 	err = b.services.BotUser().AddCoins(ctx, userID, coins)
 	if err != nil {
 		b.log.Error("Failed to add coins", logger.Error(err))
@@ -1827,7 +1705,6 @@ func (b *Bot) handleSuccessfulPayment(ctx context.Context, message *tgbotapi.Mes
 		return
 	}
 
-	// Yangi balansni olish
 	user, _ := b.services.BotUser().GetUser(ctx, userID)
 	newBalance := 0
 	if user != nil {
@@ -1840,7 +1717,6 @@ func (b *Bot) handleSuccessfulPayment(ctx context.Context, message *tgbotapi.Mes
 		logger.Int("new_balance", newBalance),
 		logger.Int("stars_paid", payment.TotalAmount))
 
-	// Muvaffaqiyatli xabar
 	text := fmt.Sprintf("✅ *To'lov muvaffaqiyatli!*\n\n"+
 		"💰 Qo'shildi: *%d* coin\n"+
 		"💳 Yangi balans: *%d* coin\n\n"+
@@ -1853,11 +1729,10 @@ func (b *Bot) handleSuccessfulPayment(ctx context.Context, message *tgbotapi.Mes
 	b.sendMainMenu(message.Chat.ID, lang)
 }
 
-// ==================== ROTATE PDF ====================
 
 func (b *Bot) startRotateFlow(ctx context.Context, chatID, userID int64) {
 	lang := b.getUserLang(ctx, userID)
-	
+
 	b.userStates.Store(userID, StateRotateUpload)
 
 	keyboard := tgbotapi.NewReplyKeyboard(
@@ -1893,7 +1768,6 @@ func (b *Bot) sendRotateAngleSelection(chatID int64, fileID, lang string) {
 }
 
 func (b *Bot) processRotate(ctx context.Context, chatID, userID int64, fileID string, angle int, lang string) {
-	// Coin tekshirish
 	canUse, coins, isPremium, _ := b.services.BotUser().CanUseService(ctx, userID)
 	if !canUse {
 		refLink := fmt.Sprintf("https://t.me/%s?start=ref%d", b.botUsername, userID)
@@ -1907,7 +1781,6 @@ func (b *Bot) processRotate(ctx context.Context, chatID, userID int64, fileID st
 	b.sendMessage(chatID, "⏳ Aylantirilmoqda...")
 	b.api.Send(tgbotapi.NewChatAction(chatID, tgbotapi.ChatUploadDocument))
 
-	// Rotate service ni chaqirish
 	req := models.RotateRequest{
 		InputFileID: fileID,
 		Angle:       angle,
@@ -1922,7 +1795,6 @@ func (b *Bot) processRotate(ctx context.Context, chatID, userID int64, fileID st
 		return
 	}
 
-	// Natijani olish
 	job, err := b.services.Rotate().GetByID(ctx, jobID)
 	if err != nil || job == nil || job.OutputFileID == nil {
 		b.sendMessage(chatID, "❌ Natija topilmadi")
@@ -1930,20 +1802,17 @@ func (b *Bot) processRotate(ctx context.Context, chatID, userID int64, fileID st
 		return
 	}
 
-	// Coin ayirish
 	b.services.BotUser().UseService(ctx, userID)
 
-	// Natijani yuborish
 	b.sendResult(chatID, userID, job.OutputFileID, lang)
 	b.sendMessage(chatID, fmt.Sprintf("✅ PDF %d° ga aylantirildi!", angle))
 	b.sendMainMenu(chatID, lang)
 }
 
-// ==================== WATERMARK PDF ====================
 
 func (b *Bot) startWatermarkFlow(ctx context.Context, chatID, userID int64) {
 	lang := b.getUserLang(ctx, userID)
-	
+
 	b.userStates.Store(userID, StateWatermarkUpload)
 
 	keyboard := tgbotapi.NewReplyKeyboard(
@@ -1959,7 +1828,6 @@ func (b *Bot) startWatermarkFlow(ctx context.Context, chatID, userID int64) {
 }
 
 func (b *Bot) processWatermark(ctx context.Context, chatID, userID int64, fileID, text, lang string) {
-	// Coin tekshirish
 	canUse, coins, isPremium, _ := b.services.BotUser().CanUseService(ctx, userID)
 	if !canUse {
 		refLink := fmt.Sprintf("https://t.me/%s?start=ref%d", b.botUsername, userID)
@@ -2002,11 +1870,10 @@ func (b *Bot) processWatermark(ctx context.Context, chatID, userID int64, fileID
 	b.sendMainMenu(chatID, lang)
 }
 
-// ==================== UNLOCK PDF ====================
 
 func (b *Bot) startUnlockFlow(ctx context.Context, chatID, userID int64) {
 	lang := b.getUserLang(ctx, userID)
-	
+
 	b.services.BotUser().SetCurrentAction(ctx, userID, "unlock")
 
 	keyboard := tgbotapi.NewReplyKeyboard(
@@ -2022,7 +1889,6 @@ func (b *Bot) startUnlockFlow(ctx context.Context, chatID, userID int64) {
 }
 
 func (b *Bot) processUnlock(ctx context.Context, chatID, userID int64, fileID, lang string) {
-	// Coin tekshirish
 	canUse, coins, isPremium, _ := b.services.BotUser().CanUseService(ctx, userID)
 	if !canUse {
 		refLink := fmt.Sprintf("https://t.me/%s?start=ref%d", b.botUsername, userID)
@@ -2038,7 +1904,7 @@ func (b *Bot) processUnlock(ctx context.Context, chatID, userID int64, fileID, l
 
 	req := models.UnlockRequest{
 		InputFileID: fileID,
-		Password:    "", // Bo'sh parol
+		Password:    "",
 	}
 
 	jobID, err := b.services.Unlock().Create(ctx, req, nil)
@@ -2062,7 +1928,6 @@ func (b *Bot) processUnlock(ctx context.Context, chatID, userID int64, fileID, l
 	b.sendMainMenu(chatID, lang)
 }
 
-
 func (b *Bot) startPDFToJPGFlow(ctx context.Context, chatID, userID int64) {
 	lang := b.getUserLang(ctx, userID)
 	b.userStates.Store(userID, StatePDFToJPGUpload)
@@ -2080,7 +1945,6 @@ func (b *Bot) startPDFToJPGFlow(ctx context.Context, chatID, userID int64) {
 }
 
 func (b *Bot) processPDFToJPG(ctx context.Context, chatID, userID int64, fileID, lang string) {
-	// Coin tekshirish
 	canUse, coins, isPremium, _ := b.services.BotUser().CanUseService(ctx, userID)
 	if !canUse {
 		refLink := fmt.Sprintf("https://t.me/%s?start=ref%d", b.botUsername, userID)
@@ -2120,19 +1984,15 @@ func (b *Bot) processPDFToJPG(ctx context.Context, chatID, userID int64, fileID,
 		b.sendResult(chatID, userID, job.ZipFileID, lang)
 		b.sendMessage(chatID, "✅ Barcha rasmlar ZIP arxivda yuborildi.")
 	} else {
-		// Agar ZIP bo'lmasa (masalan 0 rasm), xabar beramiz
 		b.sendMessage(chatID, "⚠️ Rasmlar topilmadi yoki xatolik.")
 	}
 }
-
-// ==================== SUBSCRIPTION ====================
 
 func (b *Bot) checkSubscription(ctx context.Context, userID int64) (bool, string) {
 	if b.requiredChannel == "" {
 		return true, "no_channel_required"
 	}
 
-	// Adminlar uchun tekin
 	if b.isAdmin(userID) {
 		return true, "admin"
 	}
@@ -2146,18 +2006,14 @@ func (b *Bot) checkSubscription(ctx context.Context, userID int64) (bool, string
 
 	member, err := b.api.GetChatMember(memberConfig)
 	if err != nil {
-		// Xatolik bo'lsa (bot admin emas yoki kanal noto'g'ri), log yozamiz
-		b.log.Error("Failed to check subscription", 
+		b.log.Error("Failed to check subscription",
 			logger.String("channel", b.requiredChannel),
 			logger.Int64("user_id", userID),
 			logger.Error(err),
 		)
-		// Xavfsizlik uchun bloklaymiz, admin to'g'irlashi kerak
-		// Agar bot kanaldan chiqib ketgan bo'lsa yoki admin bo'lmasa, xato beradi
+	
 		return false, fmt.Sprintf("Error: %v", err)
 	}
-
-
 
 	if member.Status == "member" || member.Status == "creator" || member.Status == "administrator" || member.Status == "restricted" {
 		return true, member.Status
@@ -2168,7 +2024,6 @@ func (b *Bot) checkSubscription(ctx context.Context, userID int64) (bool, string
 func (b *Bot) sendSubscriptionRequest(chatID int64, lang string) {
 	text := T(lang, "sub_required")
 
-	// Kanal havolasi
 	channelURL := "https://t.me/" + strings.TrimPrefix(b.requiredChannel, "@")
 
 	keyboard := tgbotapi.NewInlineKeyboardMarkup(
@@ -2186,7 +2041,6 @@ func (b *Bot) sendSubscriptionRequest(chatID int64, lang string) {
 }
 
 func (b *Bot) sendUserList(ctx context.Context, chatID int64) {
-	// Barcha foydalanuvchilarni olish
 	users, err := b.services.BotUser().GetAllUsers(ctx)
 	if err != nil {
 		b.sendMessage(chatID, "❌ Xatolik yuz berdi: "+err.Error())
@@ -2198,14 +2052,13 @@ func (b *Bot) sendUserList(ctx context.Context, chatID int64) {
 		return
 	}
 
-	// Oxirgi 30 ta user (yoki kamroq)
 	count := len(users)
 	limit := 30
 	start := 0
 	if count > limit {
 		start = count - limit
 	}
-	
+
 	// Create text report
 	var sb strings.Builder
 	sb.WriteString(fmt.Sprintf("👥 *Foydalanuvchilar ro'yxati* (Jami: %d)\n\n", count))
@@ -2220,11 +2073,11 @@ func (b *Bot) sendUserList(ctx context.Context, chatID int64) {
 		} else {
 			username = u.FirstName
 		}
-		
-		line := fmt.Sprintf("%d. *%s* | 🆔 `%d` | 💰 %d\n", 
-			count-i, 
-			username, 
-			u.TelegramID, 
+
+		line := fmt.Sprintf("%d. *%s* | 🆔 `%d` | 💰 %d\n",
+			count-i,
+			username,
+			u.TelegramID,
 			u.Coins,
 		)
 		sb.WriteString(line)
@@ -2256,7 +2109,7 @@ func (b *Bot) sendBackupExcel(ctx context.Context, chatID int64) {
 	// CSV fayl yaratish
 	fileName := fmt.Sprintf("backup_users_%s.csv", time.Now().Format("2006-01-02_15-04-05"))
 	csvPath := filepath.Join("/tmp", fileName)
-	
+
 	file, err := os.Create(csvPath)
 	if err != nil {
 		b.sendMessage(chatID, "❌ Fayl yaratishda xatolik!")
@@ -2307,7 +2160,7 @@ func (b *Bot) sendBackupExcel(ctx context.Context, chatID int64) {
 	doc := tgbotapi.NewDocument(chatID, tgbotapi.FilePath(csvPath))
 	doc.Caption = fmt.Sprintf("🗄 <b>Full Backup (Excel/CSV)</b>\n👥 Foydalanuvchilar: %d ta\n📅 Sana: %s", len(users), time.Now().Format("2006-01-02 15:04"))
 	doc.ParseMode = "HTML"
-	
+
 	if _, err := b.api.Send(doc); err != nil {
 		b.sendMessage(chatID, "❌ Yuborishda xatolik: "+err.Error())
 	}

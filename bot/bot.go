@@ -52,6 +52,7 @@ type Bot struct {
 	adminContext     sync.Map
 	mergeContext     sync.Map
 	splitContext     sync.Map
+	jpgContext       sync.Map
 	mediaGroupWarned sync.Map
 	workerPool       chan struct{}
 }
@@ -352,9 +353,7 @@ func (b *Bot) handleUpdate(ctx context.Context, update tgbotapi.Update) {
 				b.userStates.Store(update.Message.From.ID, StatePowerPointToPDFUpload)
 				b.sendMessage(update.Message.Chat.ID, T(lang, "select_file"))
 			case "image_to_pdf":
-				b.services.BotUser().SetCurrentAction(ctx, update.Message.From.ID, "image")
-				b.userStates.Store(update.Message.From.ID, StateJPGToPDFUpload)
-				b.sendMessage(update.Message.Chat.ID, T(lang, "select_file"))
+				b.startJPGToPDFFlow(ctx, update.Message.Chat.ID, update.Message.From.ID)
 			case "my_coins":
 				b.showUserCoins(ctx, update.Message.Chat.ID, update.Message.From.ID, lang)
 			case "referral":
@@ -454,9 +453,7 @@ func (b *Bot) handleCallback(ctx context.Context, callback *tgbotapi.CallbackQue
 		b.userStates.Store(userID, StatePowerPointToPDFUpload)
 		b.sendMessage(chatID, T(lang, "select_file"))
 	case "menu_image":
-		b.services.BotUser().SetCurrentAction(ctx, userID, "image")
-		b.userStates.Store(userID, StateJPGToPDFUpload)
-		b.sendMessage(chatID, T(lang, "select_file"))
+		b.startJPGToPDFFlow(ctx, chatID, userID)
 	case "menu_coins":
 		b.showUserCoins(ctx, chatID, userID, lang)
 	case "menu_ref", "referral":
@@ -489,6 +486,14 @@ func (b *Bot) handleCallback(ctx context.Context, callback *tgbotapi.CallbackQue
 		b.startPDFToJPGFlow(ctx, chatID, userID)
 	case "menu_protect":
 		b.startProtectFlow(ctx, chatID, userID)
+	case "jpg_done":
+		b.finishJPGToPDFFlow(ctx, chatID, userID)
+	case "jpg_cancel":
+		b.jpgContext.Delete(userID)
+		b.userStates.Delete(userID)
+		b.api.Request(tgbotapi.NewDeleteMessage(chatID, callback.Message.MessageID))
+		b.sendMessage(chatID, "❌ Bekor qilindi")
+		b.sendMainMenu(chatID, lang)
 	}
 }
 
@@ -630,8 +635,7 @@ func (b *Bot) handleCommand(ctx context.Context, message *tgbotapi.Message) {
 	case "pdf_to_jpg":
 		b.sendMessage(message.Chat.ID, "⚠️ Bu funksiya tez orada qo'shiladi!")
 	case "jpg_to_pdf":
-		b.services.BotUser().SetCurrentAction(ctx, message.From.ID, "image")
-		b.sendMessage(message.Chat.ID, T(lang, "select_file"))
+		b.startJPGToPDFFlow(ctx, message.Chat.ID, message.From.ID)
 
 	case "stats", "cleanup", "addcoins", "top":
 		if b.isAdmin(message.From.ID) {
@@ -893,53 +897,49 @@ func (b *Bot) handleDocument(ctx context.Context, message *tgbotapi.Message) {
 	if state, ok := b.userStates.Load(userID); ok && state == StateWordToPDFUpload {
 		doc := message.Document
 		ext := strings.ToLower(filepath.Ext(doc.FileName))
-		if ext != ".doc" && ext != ".docx" && ext != ".odt" && ext != ".rtf" {
-			b.sendMessage(message.Chat.ID, "❌ Faqat Word fayl (.doc, .docx) yuboring!")
+		if ext == ".doc" || ext == ".docx" || ext == ".odt" || ext == ".rtf" {
+			b.userStates.Delete(userID)
+			b.processFile(ctx, message, "word", lang)
 			return
 		}
-
 		b.userStates.Delete(userID)
-		b.processFile(ctx, message, "word", lang)
-		return
+		action = ""
 	}
 
 	if state, ok := b.userStates.Load(userID); ok && state == StateExcelToPDFUpload {
 		doc := message.Document
 		ext := strings.ToLower(filepath.Ext(doc.FileName))
-		if ext != ".xls" && ext != ".xlsx" {
-			b.sendMessage(message.Chat.ID, "❌ Faqat Excel fayl (.xls, .xlsx) yuboring!")
+		if ext == ".xls" || ext == ".xlsx" {
+			b.userStates.Delete(userID)
+			b.processFile(ctx, message, "excel", lang)
 			return
 		}
-
 		b.userStates.Delete(userID)
-		b.processFile(ctx, message, "excel", lang)
-		return
+		action = ""
 	}
 
 	if state, ok := b.userStates.Load(userID); ok && state == StatePowerPointToPDFUpload {
 		doc := message.Document
 		ext := strings.ToLower(filepath.Ext(doc.FileName))
-		if ext != ".ppt" && ext != ".pptx" {
-			b.sendMessage(message.Chat.ID, "❌ Faqat PowerPoint fayl (.ppt, .pptx) yuboring!")
+		if ext == ".ppt" || ext == ".pptx" {
+			b.userStates.Delete(userID)
+			b.processFile(ctx, message, "ppt", lang)
 			return
 		}
-
 		b.userStates.Delete(userID)
-		b.processFile(ctx, message, "ppt", lang)
-		return
+		action = ""
 	}
 
 	if state, ok := b.userStates.Load(userID); ok && state == StateJPGToPDFUpload {
 		doc := message.Document
 		ext := strings.ToLower(filepath.Ext(doc.FileName))
-		if ext != ".jpg" && ext != ".jpeg" && ext != ".png" {
-			b.sendMessage(message.Chat.ID, "❌ Faqat Rasm fayl (.jpg, .png) yuboring!")
+		if ext == ".jpg" || ext == ".jpeg" || ext == ".png" {
+			b.userStates.Delete(userID)
+			b.processFile(ctx, message, "image", lang)
 			return
 		}
-
 		b.userStates.Delete(userID)
-		b.processFile(ctx, message, "image", lang)
-		return
+		action = ""
 	}
 
 	doc := message.Document
@@ -1197,6 +1197,10 @@ func (b *Bot) handlePhoto(ctx context.Context, message *tgbotapi.Message) {
 	lang := b.getUserLang(ctx, message.From.ID)
 	userID := message.From.ID
 
+	if state, ok := b.userStates.Load(userID); !ok || state != StateJPGToPDFUpload {
+		b.startJPGToPDFFlow(ctx, message.Chat.ID, userID)
+	}
+
 	if _, loaded := b.processingUsers.LoadOrStore(userID, true); loaded {
 		b.sendMessage(message.Chat.ID, T(lang, "processing_wait"))
 		return
@@ -1213,7 +1217,7 @@ func (b *Bot) handlePhoto(ctx context.Context, message *tgbotapi.Message) {
 		b.sendMessage(message.Chat.ID, fmt.Sprintf(T(lang, "coins_left"), coins))
 	}
 
-	b.sendMessage(message.Chat.ID, T(lang, "file_received"))
+	// b.sendMessage(message.Chat.ID, T(lang, "file_received"))
 
 	photos := message.Photo
 	photo := photos[len(photos)-1]
@@ -1227,20 +1231,83 @@ func (b *Bot) handlePhoto(ctx context.Context, message *tgbotapi.Message) {
 
 	b.log.Info("Photo saved", logger.String("fileID", fileID))
 
-	jobID, err := b.services.JPGToPDF().CreateJob(ctx, nil, []string{fileID})
+	var fileIDs []string
+	if list, ok := b.jpgContext.Load(userID); ok {
+		fileIDs = list.([]string)
+	}
+	fileIDs = append(fileIDs, fileID)
+	b.jpgContext.Store(userID, fileIDs)
+
+	count := len(fileIDs)
+
+	keyboard := tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("✅ Tayyor (Done)", "jpg_done"),
+			tgbotapi.NewInlineKeyboardButtonData("❌ Bekor qilish", "jpg_cancel"),
+		),
+	)
+
+	msgText := fmt.Sprintf("📸 *%d ta rasm qabul qilindi.*\n\nYana rasm yuboring yoki barchasini PDF qilish uchun *Tayyor* tugmasini bosing.", count)
+	if lang != "uz" {
+		msgText = fmt.Sprintf("📸 *%d photos received.*\n\nSend more photos or click *Done* to convert all to PDF.", count)
+	}
+
+	msg := tgbotapi.NewMessage(message.Chat.ID, msgText)
+	msg.ParseMode = "Markdown"
+	msg.ReplyMarkup = keyboard
+	b.api.Send(msg)
+}
+
+func (b *Bot) startJPGToPDFFlow(ctx context.Context, chatID, userID int64) {
+	b.services.BotUser().SetCurrentAction(ctx, userID, "image")
+	b.userStates.Store(userID, StateJPGToPDFUpload)
+	b.jpgContext.Delete(userID)
+	lang := b.getUserLang(ctx, userID)
+	b.sendMessage(chatID, T(lang, "select_file")+" (JPG, PNG)")
+}
+
+func (b *Bot) finishJPGToPDFFlow(ctx context.Context, chatID, userID int64) {
+	lang := b.getUserLang(ctx, userID)
+
+	if _, loaded := b.processingUsers.LoadOrStore(userID, true); loaded {
+		b.sendMessage(chatID, T(lang, "processing_wait"))
+		return
+	}
+	defer b.processingUsers.Delete(userID)
+
+	list, ok := b.jpgContext.Load(userID)
+	if !ok || list == nil {
+		b.sendMessage(chatID, "❌ Fayllar topilmadi / No files found")
+		return
+	}
+	fileIDs := list.([]string)
+	if len(fileIDs) == 0 {
+		b.sendMessage(chatID, "❌ Fayllar topilmadi / No files found")
+		return
+	}
+
+	msgWait := tgbotapi.NewMessage(chatID, T(lang, "file_received")) // "Ishlanmoqda..."
+	b.api.Send(msgWait)
+
+	jobID, err := b.services.JPGToPDF().CreateJob(ctx, nil, fileIDs)
 	if err != nil {
 		b.log.Error("JPGToPDF failed", logger.Error(err))
-		b.sendMessage(message.Chat.ID, T(lang, "error")+" (convert)")
+		b.sendMessage(chatID, T(lang, "error")+" (convert)")
 		return
 	}
 
 	job, _ := b.services.JPGToPDF().GetJobByID(ctx, jobID)
 	if job == nil || job.OutputFileID == nil {
-		b.sendMessage(message.Chat.ID, T(lang, "error"))
+		b.sendMessage(chatID, T(lang, "error"))
 		return
 	}
 
-	b.sendResult(message.Chat.ID, userID, job.OutputFileID, lang)
+	// Clean up
+	b.jpgContext.Delete(userID)
+	b.userStates.Delete(userID)
+	b.services.BotUser().SetCurrentAction(ctx, userID, "")
+
+	b.sendResult(chatID, userID, job.OutputFileID, lang)
 }
 
 func (b *Bot) savePhoto(ctx context.Context, telegramFileID string, userID int64) (string, error) {
@@ -1518,7 +1585,7 @@ func (b *Bot) finishMergeFlow(ctx context.Context, chatID, userID int64) {
 
 	select {
 	case b.workerPool <- struct{}{}:
-		defer func() { <-b.workerPool }() 
+		defer func() { <-b.workerPool }()
 	default:
 		b.sendMessage(chatID, "⚠️ Server ayni damda band. Iltimos 1 daqiqadan so'ng urinib ko'ring.")
 		return
@@ -1539,12 +1606,11 @@ func (b *Bot) finishMergeFlow(ctx context.Context, chatID, userID int64) {
 	b.sendMainMenu(chatID, lang)
 }
 
-
 func (b *Bot) startSplitFlow(ctx context.Context, chatID, userID int64) {
 	lang := b.getUserLang(ctx, userID)
 
 	b.userStates.Store(userID, StateSplitUpload)
-	b.splitContext.Delete(userID) 
+	b.splitContext.Delete(userID)
 
 	keyboard := tgbotapi.NewReplyKeyboard(
 		tgbotapi.NewKeyboardButtonRow(
@@ -1622,7 +1688,6 @@ func (b *Bot) finishSplitFlow(ctx context.Context, chatID, userID int64, pagesIn
 	b.sendMainMenu(chatID, lang)
 }
 
-
 func (b *Bot) sendBuyCoinsMenu(chatID int64, lang string) {
 	text := "💰 *Coin Sotib Olish*\n\n" +
 		"⭐ 1 Star = 1 Coin = 1 Job\n\n" +
@@ -1653,7 +1718,7 @@ func (b *Bot) sendStarsInvoice(chatID, userID int64, lang string, stars, coins i
 		Title:       title,
 		Description: description,
 		Payload:     payload,
-		Currency:    "XTR", 
+		Currency:    "XTR",
 		Prices: []tgbotapi.LabeledPrice{
 			{
 				Label:  title,
@@ -1668,7 +1733,6 @@ func (b *Bot) sendStarsInvoice(chatID, userID int64, lang string, stars, coins i
 		b.sendMessage(chatID, T(lang, "error"))
 	}
 }
-
 
 func (b *Bot) handlePreCheckout(query *tgbotapi.PreCheckoutQuery) {
 	callback := tgbotapi.PreCheckoutConfig{
@@ -1728,7 +1792,6 @@ func (b *Bot) handleSuccessfulPayment(ctx context.Context, message *tgbotapi.Mes
 
 	b.sendMainMenu(message.Chat.ID, lang)
 }
-
 
 func (b *Bot) startRotateFlow(ctx context.Context, chatID, userID int64) {
 	lang := b.getUserLang(ctx, userID)
@@ -1809,7 +1872,6 @@ func (b *Bot) processRotate(ctx context.Context, chatID, userID int64, fileID st
 	b.sendMainMenu(chatID, lang)
 }
 
-
 func (b *Bot) startWatermarkFlow(ctx context.Context, chatID, userID int64) {
 	lang := b.getUserLang(ctx, userID)
 
@@ -1869,7 +1931,6 @@ func (b *Bot) processWatermark(ctx context.Context, chatID, userID int64, fileID
 	b.sendMessage(chatID, "✅ Suv belgisi qo'shildi!")
 	b.sendMainMenu(chatID, lang)
 }
-
 
 func (b *Bot) startUnlockFlow(ctx context.Context, chatID, userID int64) {
 	lang := b.getUserLang(ctx, userID)
@@ -2011,7 +2072,7 @@ func (b *Bot) checkSubscription(ctx context.Context, userID int64) (bool, string
 			logger.Int64("user_id", userID),
 			logger.Error(err),
 		)
-	
+
 		return false, fmt.Sprintf("Error: %v", err)
 	}
 

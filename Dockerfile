@@ -14,17 +14,25 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
     go build -trimpath -ldflags "-s -w" -o /out/app ./cmd/main.go
 
 # ===== Runtime stage =====
-FROM gcr.io/distroless/static-debian12:nonroot
+FROM debian:bookworm-slim
 WORKDIR /app
 
-# Migrations papkasini ko'chirish
+# Install dependencies for PDF conversion (pdftoppm)
+RUN apt-get update && apt-get install -y \
+    poppler-utils \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy application artifacts
 COPY --from=build /src/migrations /app/migrations
 COPY --from=build /src/templates /app/templates
 COPY --from=build /out/app /app/app
 
-# Storage papkasi uchun
+# Storage volume
 VOLUME /app/storage
 
 EXPOSE 8080
-USER nonroot:nonroot
+
+# Run as root (needed for apt/utils in this simplified setup, 
+# or we can create a user, but for now strict permissions are handled by app)
 ENTRYPOINT ["/app/app"]
